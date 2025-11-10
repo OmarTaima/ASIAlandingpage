@@ -1,0 +1,618 @@
+import { useEffect, useMemo, useRef, useState, memo, useCallback, useReducer } from "react";
+import { Users2, Check, Loader2 } from "lucide-react";
+import productVideo from "./assets/ME MODA.mp4";
+import logoImg from "./assets/Logo.jpg";
+
+// Load images dynamically from assets using Vite's glob import
+const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+const womenImages = import.meta.glob(
+  "./assets/women/**/*.{jpg,jpeg,png,webp}",
+  { eager: true, query: "?url", import: "default" }
+);
+
+// Build product items from imported images
+function buildItems(mapObj, category) {
+  return Object.entries(mapObj)
+    .map(([path, url], idx) => {
+      const nameFromFile =
+        path
+          .split("/")
+          .pop()
+          ?.replace(/\.[^.]+$/, "") ?? `${category}-${idx + 1}`;
+      return {
+        id: `${category}-${idx}-${nameFromFile}`,
+        name: nameFromFile,
+        category,
+        image: url,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+}
+
+// Product Card: optimized for fast selection with consistent low-res images
+const ProductCard = memo(
+  ({ item, selected, disabled, onToggle }) => {
+    // Use consistent low-res image for instant selection feedback
+    const src = `${item.image}?width=150&quality=30`;
+
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(item.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle(item.id);
+          }
+        }}
+        disabled={disabled}
+        className={`relative flex flex-col items-center justify-center rounded-md py-2 px-2 text-xs font-semibold cursor-pointer focus:outline-none transition-none border ${
+          selected
+            ? "border-[#be9f4e] bg-linear-to-b from-white via-[#fffaf0] to-[#fdfaf4] text-neutral-900 shadow-md"
+            : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        aria-pressed={selected}
+      >
+        <div
+          className={`w-12 h-12 sm:w-14 md:w-16 rounded-lg overflow-hidden mb-1 flex items-center justify-center bg-gray-100 ${
+            selected ? "ring-2 ring-[#be9f4e]" : ""
+          }`}
+        >
+          <img
+            src={src}
+            alt={item.name}
+            role="img"
+            className="w-full h-full object-cover pointer-events-none"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+
+        <div className="text-[10px] text-center truncate w-full leading-tight normal-case">
+          {item.name}
+        </div>
+
+        {selected && (
+          <div className="absolute top-1 right-1 bg-[#be9f4e] text-white rounded-full p-0.5">
+            <Check className="w-3 h-3" />
+          </div>
+        )}
+      </button>
+    );
+  },
+  (prev, next) =>
+    prev.selected === next.selected &&
+    prev.disabled === next.disabled &&
+    prev.item.id === next.item.id
+);
+
+const MEN = "men";
+const WOMEN = "women";
+
+export default function ProductPage() {
+  // Build product lists once
+  const allMen = useMemo(() => buildItems(menImages, MEN), []);
+  const allWomen = useMemo(() => buildItems(womenImages, WOMEN), []);
+
+  // State
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [selectedMen, setSelectedMen] = useState(new Set());
+  const [selectedWomen, setSelectedWomen] = useState(new Set());
+  const [desiredCount, setDesiredCount] = useState(1);
+  const [offerSize, setOfferSize] = useState(2);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Refs
+  const formRef = useRef(null);
+  const videoRef = useRef(null);
+  const targetCountRef = useRef(0);
+  const selectedMenRef = useRef(selectedMen);
+  const selectedWomenRef = useRef(selectedWomen);
+
+  // Calculations
+  const totalSelected = selectedMen.size + selectedWomen.size;
+  const targetCount = offerSize * Number(desiredCount || 0);
+  const remaining = Math.max(targetCount - totalSelected, 0);
+
+  const price = useMemo(() => {
+    const cnt = Number(desiredCount || 0);
+    if (offerSize === 4) return cnt * 800;
+    if (offerSize === 2) return cnt * 500;
+    return cnt * 250;
+  }, [offerSize, desiredCount]);
+
+  const delivery = 40;
+  const grandTotal = price + (price > 0 ? delivery : 0);
+
+  // Keep refs in sync
+  useEffect(() => {
+    targetCountRef.current = targetCount;
+    selectedMenRef.current = selectedMen;
+    selectedWomenRef.current = selectedWomen;
+  }, [targetCount, selectedMen, selectedWomen]);
+
+  // activeCategory ref so toggleItem can stay stable
+  const activeCategoryRef = useRef(activeCategory);
+  useEffect(() => {
+    activeCategoryRef.current = activeCategory;
+  }, [activeCategory]);
+
+  // Video loop handler
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onEnd = () => {
+      try {
+        v.currentTime = 0;
+        v.play().catch(() => {});
+      } catch (_) {}
+    };
+    v.addEventListener("ended", onEnd);
+    return () => v.removeEventListener("ended", onEnd);
+  }, []);
+
+  // Toggle item selection - keep function reference stable using refs
+  const toggleItem = (itemId) => {
+    const currentCategory = activeCategoryRef.current;
+    if (!currentCategory) return;
+    const isMen = currentCategory === MEN;
+
+    if (isMen) {
+      setSelectedMen((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(itemId)) {
+          newSet.delete(itemId);
+          return newSet;
+        }
+        const currentTotal = prev.size + selectedWomenRef.current.size;
+        if (targetCountRef.current && currentTotal >= targetCountRef.current) {
+          return prev;
+        }
+        newSet.add(itemId);
+        return newSet;
+      });
+    } else {
+      setSelectedWomen((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(itemId)) {
+          newSet.delete(itemId);
+          return newSet;
+        }
+        const currentTotal = selectedMenRef.current.size + prev.size;
+        if (targetCountRef.current && currentTotal >= targetCountRef.current) {
+          return prev;
+        }
+        newSet.add(itemId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleOrderNow = () => {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Handle category change with loading state
+  const handleCategoryChange = (category) => {
+    if (category === activeCategory) return;
+
+    setIsLoading(true);
+    setActiveCategory(category);
+
+    // Simulate waiting for images to load
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+  };
+
+  return (
+    <div dir="rtl" className="min-h-svh bg-neutral-50 text-neutral-900">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-neutral-200">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Logo image */}
+            <img
+              src={logoImg}
+              alt="ASIA logo"
+              className="w-10 h-10 object-cover rounded-full"
+            />
+            <div className="leading-tight">
+              <div className="font-bold text-lg">ASIA</div>
+            </div>
+          </div>
+          <div />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Media */}
+        <section className="space-y-4">
+          <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-black">
+            <video
+              ref={videoRef}
+              src={productVideo}
+              className="w-full h-auto"
+              loop
+              muted
+              playsInline
+              autoPlay
+              controls
+            />
+          </div>
+        </section>
+
+        {/* Details + Selector */}
+        <section className="space-y-5">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-extrabold">عطور مميزة</h1>
+            <p className="text-sm text-neutral-600 leading-relaxed">
+              استمتع بتجربة عطرية فاخرة. اختر عطورك المفضلة من تشكيلتنا الرجالية
+              والنسائية، مع عروض مميزة لتوفير أكبر.
+            </p>
+            <div className="text-red-600 text-xs">
+              ملاحظة: اختر نوع العرض أولاً ثم حدد عدد هذه العروض باستخدام العداد
+              أسفل الصفحة.
+            </div>
+            <div className="mt-2 w-full flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setOfferSize(2)}
+                className={
+                  "flex flex-col items-center px-3 py-2 rounded-md text-sm text-center " +
+                  (offerSize === 2
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50")
+                }
+                aria-pressed={offerSize === 2}
+              >
+                <span className="font-medium">عرض 2</span>
+                <span className="text-xs text-neutral-400">
+                  2 عطور — 500 جنيه
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOfferSize(4)}
+                className={
+                  "flex flex-col items-center px-3 py-2 rounded-md text-sm text-center " +
+                  (offerSize === 4
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50")
+                }
+                aria-pressed={offerSize === 4}
+              >
+                <span className="font-medium">عرض 4</span>
+                <span className="text-xs text-neutral-400">
+                  4 عطور — 800 جنيه
+                </span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <button
+              onClick={handleOrderNow}
+              className="w-full mt-2 px-4 py-2 rounded-lg bg-[#be9f4e] text-white hover:bg-[#a67f3e]"
+            >
+              اطلب الآن
+            </button>
+          </div>
+          {/* counter removed from inline details — moved to sticky bottom bar */}
+
+          <div className="flex items-center gap-3 text-sm">
+            <div className="inline-flex rounded-lg border border-neutral-200 p-1 bg-white">
+              <button
+                onClick={() => handleCategoryChange(MEN)}
+                disabled={isLoading}
+                className={`px-3 py-1.5 rounded-md text-sm transition-none ${
+                  activeCategory === MEN
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-700 hover:bg-neutral-100"
+                } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                رجالي
+              </button>
+              <button
+                onClick={() => handleCategoryChange(WOMEN)}
+                disabled={isLoading}
+                className={`px-3 py-1.5 rounded-md text-sm transition-none ${
+                  activeCategory === WOMEN
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-700 hover:bg-neutral-100"
+                } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                نسائي
+              </button>
+            </div>
+            <div className="ms-auto inline-flex items-center gap-2 text-sm">
+              <Users2 className="size-4 text-neutral-500" />
+              <span>
+                المختار: {totalSelected}
+                {targetCount ? ` / ${targetCount}` : ""}
+              </span>
+              {targetCount ? (
+                <span className="text-[#a67f3e] bg-[#fffaf0] border border-[#f0e6c2] px-2 py-0.5 rounded-full">
+                  متبقي: {remaining}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Grid - render both categories, show/hide with CSS for instant switching */}
+          {!activeCategory ? (
+            <div className="py-8 text-center text-neutral-500">
+              اختر فئة "رجالي" أو "نسائي" لعرض العطور
+            </div>
+          ) : null}
+
+          {/* Loader when switching categories */}
+          {isLoading && (
+            <div className="py-12 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[#be9f4e]" />
+              <p className="text-sm text-neutral-600">جاري تحميل العطور...</p>
+            </div>
+          )}
+
+          <div
+            className={`grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 ${
+              activeCategory === MEN && !isLoading ? "" : "hidden"
+            }`}
+          >
+            {allMen.map((item) => {
+              const selected = selectedMen.has(item.id);
+              const disabled =
+                !selected && targetCount && totalSelected >= targetCount;
+              return (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  selected={selected}
+                  disabled={disabled}
+                  onToggle={toggleItem}
+                />
+              );
+            })}
+          </div>
+
+          <div
+            className={`grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 ${
+              activeCategory === WOMEN && !isLoading ? "" : "hidden"
+            }`}
+          >
+            {allWomen.map((item) => {
+              const selected = selectedWomen.has(item.id);
+              const disabled =
+                !selected && targetCount && totalSelected >= targetCount;
+              return (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  selected={selected}
+                  disabled={disabled}
+                  onToggle={toggleItem}
+                />
+              );
+            })}
+          </div>
+
+          {/* Order form */}
+          <form
+            ref={formRef}
+            className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // Basic submit mock — do not show offer decomposition
+              alert(
+                `تم استلام طلبك!\nعدد العطور: ${totalSelected}\nالسعر: ${price} + التوصيل ${delivery} = ${grandTotal} جنيه`
+              );
+            }}
+          >
+            <h2 className="text-lg font-bold">تأكيد الطلب</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm text-neutral-700">الاسم</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="اكتب اسمك الكامل"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm text-neutral-700">رقم الهاتف</label>
+                <input
+                  required
+                  type="tel"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="01XXXXXXXXX"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-sm text-neutral-700">المحافظه</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="اكتب اسم محافظتك"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-sm text-neutral-700">العنوان</label>
+                <input
+                  required
+                  type="text"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="المدينة، الشارع، أقرب علامة مميزة"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-sm text-neutral-700">ملاحظات</label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="أي تفاصيل إضافية للطلب"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3 text-sm">
+              {/* Offer breakdown removed from UI per request */}
+              <div className="flex items-center justify-between">
+                <span>سعر العطور</span>
+                <span>
+                  {price !== undefined && price !== null
+                    ? `${price} جنيه`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>سعر التوصيل</span>
+                <span>{delivery} جنيه</span>
+              </div>
+              <div className="flex items-center justify-between font-bold border-t mt-2 pt-2">
+                <span>الإجمالي</span>
+                <span>
+                  {grandTotal !== undefined && grandTotal !== null
+                    ? `${grandTotal} جنيه`
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-neutral-900 text-white hover:bg-black disabled:opacity-50"
+              disabled={totalSelected !== targetCount}
+              title={totalSelected !== targetCount ? "أكمل اختيار العطور" : ""}
+            >
+              تأكيد الطلب
+            </button>
+            {/* no offer requirement; user selects desired count using the counter above */}
+          </form>
+        </section>
+      </main>
+
+      {/* Sticky bottom bar with counter and order button (full width) */}
+      <div className="fixed inset-x-0 bottom-0 z-50">
+        <div className="w-full bg-white border-t border-neutral-200 shadow-md">
+          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
+            <div className="inline-flex items-center bg-white rounded-full shadow-sm">
+              <button
+                type="button"
+                onClick={() => setDesiredCount((c) => Math.max(1, c - 1))}
+                className="px-3 py-2 rounded-l-full bg-neutral-100 hover:bg-neutral-200 text-lg"
+                aria-label="نقص"
+              >
+                −
+              </button>
+              <div className="px-5 py-2 text-center w-12 text-sm font-medium">
+                {desiredCount}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDesiredCount((c) => Math.min(20, c + 1))}
+                className="px-3 py-2 rounded-r-full bg-neutral-100 hover:bg-neutral-200 text-lg"
+                aria-label="زيادة"
+              >
+                +
+              </button>
+            </div>
+
+            <button
+              onClick={handleOrderNow}
+              className="px-6 py-2 rounded-full bg-[#be9f4e] text-white hover:bg-[#a67f3e]"
+            >
+              اطلب الآن
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <footer className="w-full bg-neutral-100 mt-8">
+        <div className="mx-auto max-w-6xl px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-start-1 md:col-span-2">
+            <h3 className="font-semibold text-base mb-2">فروعنا</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-neutral-700">
+              <div>
+                <div className="font-medium">مدينة طنطا</div>
+                <ul className="list-inside list-disc mt-1 space-y-1">
+                  <li>شارع نادي المعلمين بجانب بوابة نادي طنطا</li>
+                  <li>شارع سعيد تقاطع شارع محب</li>
+                  <li>شارع الأشرف مول أوت ليت</li>
+                </ul>
+              </div>
+              <div>
+                <div className="font-medium">فرع إضافي</div>
+                <ul className="list-inside list-disc mt-1 space-y-1">
+                  <li>مدينة السادات — مول سيڤن ستارز ستور 110 الدور الأرضي</li>
+                  <li>محافظة الإسكندرية — سموحة شارع مصطفى كامل أمام أورنج</li>
+                  <li>
+                    محافظة السويس — الملاحة، برج العزيزية بجوار كافيه جواهر البن
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3 md:col-start-3 ">
+            <p dir="ltr" className="text-sm text-neutral-700 text-left">
+              For quick contact or order inquiries, reach us at:
+            </p>
+            <div
+              dir="ltr"
+              className="text-sm text-neutral-800 space-y-1 text-left"
+            >
+              <div>
+                Phone:{" "}
+                <a className="text-[#be9f4e]" href="tel:+201099949245">
+                  +20 10 99949245
+                </a>
+              </div>
+              <div>
+                WhatsApp:{" "}
+                <a
+                  className="text-[#be9f4e]"
+                  href="https://wa.me/201090988215"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  +20 10 90988215
+                </a>
+              </div>
+              <div>
+                Email:{" "}
+                <a className="text-[#be9f4e]" href="mailto:asiaaegy@gmail.com">
+                  asiaaegy@gmail.com
+                </a>
+              </div>
+              <div>
+                Website:{" "}
+                <a
+                  className="text-[#be9f4e]"
+                  href="https://asiaegy.com"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  asiaegy.com
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-neutral-200">
+          <div className="mx-auto max-w-6xl px-6 py-4 text-xs text-neutral-500 flex flex-col md:flex-row items-center justify-between">
+            <div>جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA</div>
+            <div className="mt-2 md:mt-0">
+              العنوان الرئيسي: 21 شارع نادي المعلمين، طنطا، مصر
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
