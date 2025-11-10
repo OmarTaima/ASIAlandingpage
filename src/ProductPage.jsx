@@ -36,15 +36,8 @@ function buildItems(mapObj, category) {
 // Product Card: serve a low-res image by default and load full-res when selected
 const ProductCard = memo(
   ({ item, selected, disabled, onToggle }) => {
-    // Low-quality small image to save bandwidth initially
     const lowResSrc = `${item.image}?width=200&quality=30`;
-    const [showFull, setShowFull] = useState(!!selected);
-
-    useEffect(() => {
-      if (selected) setShowFull(true);
-    }, [selected]);
-
-    const src = showFull ? item.image : lowResSrc;
+    const src = lowResSrc;
 
     return (
       <button
@@ -76,12 +69,12 @@ const ProductCard = memo(
             className="w-full h-full object-cover pointer-events-none"
             loading="lazy"
             decoding="async"
-            fetchPriority={selected || showFull ? "high" : "auto"}
-            srcSet={
-              showFull
-                ? `${item.image}?width=400 400w, ${item.image}?width=800 800w`
-                : `${item.image}?width=200 200w`
-            }
+            // Keep priority normal for previews; do not force high priority
+            // when selected to avoid loading the large image on click.
+            fetchPriority="auto"
+            // Only provide the small preview in srcSet so the browser won't
+            // request larger variants when the user selects the card.
+            srcSet={`${lowResSrc} 200w`}
             sizes="(max-width: 800px) 100vw, 50vw"
           />
         </div>
