@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Users2, Check } from "lucide-react";
+import { Users2, Check, Plus, Minus } from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 
@@ -106,7 +106,7 @@ export default function ProductPage() {
   const allWomen = useMemo(() => buildItems(womenImages, WOMEN), []);
 
   // State
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(MEN);
   const [selectedMen, setSelectedMen] = useState(new Set());
   const [selectedWomen, setSelectedWomen] = useState(new Set());
   const [desiredCount, setDesiredCount] = useState(1);
@@ -300,21 +300,25 @@ export default function ProductPage() {
             <div className="inline-flex rounded-lg border border-neutral-200 p-1 bg-white">
               <button
                 onClick={() => setActiveCategory(MEN)}
-                className={`px-3 py-1.5 rounded-md text-sm transition-none ${
+                aria-pressed={activeCategory === MEN}
+                className={`px-4 py-2 rounded-md text-base sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 ${
                   activeCategory === MEN
-                    ? "bg-neutral-900 text-white"
+                    ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
                     : "text-neutral-700 hover:bg-neutral-100"
                 }`}
+                style={{ minWidth: 96 }}
               >
                 رجالي
               </button>
               <button
                 onClick={() => setActiveCategory(WOMEN)}
-                className={`px-3 py-1.5 rounded-md text-sm transition-none ${
+                aria-pressed={activeCategory === WOMEN}
+                className={`px-4 py-2 rounded-md text-base sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 ${
                   activeCategory === WOMEN
-                    ? "bg-neutral-900 text-white"
+                    ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
                     : "text-neutral-700 hover:bg-neutral-100"
                 }`}
+                style={{ minWidth: 96 }}
               >
                 نسائي
               </button>
@@ -484,25 +488,32 @@ export default function ProductPage() {
       <div className="fixed inset-x-0 bottom-0 z-50">
         <div className="w-full bg-white border-t border-neutral-200 shadow-md">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
-            <div className="inline-flex items-center bg-white rounded-full shadow-sm">
+            <div className="inline-flex items-center bg-white rounded-full shadow-sm gap-2 px-1">
               <button
                 type="button"
                 onClick={() => setDesiredCount((c) => Math.max(1, c - 1))}
-                className="px-3 py-2 rounded-l-full bg-neutral-100 hover:bg-neutral-200 text-lg"
+                className="p-2 rounded-full bg-white border border-neutral-200 text-[#be9f4e] hover:bg-[#be9f4e] hover:text-white transition-colors duration-150 flex items-center justify-center focus:outline-none shadow-sm"
                 aria-label="نقص"
+                title="نقص"
               >
-                −
+                <Minus className="w-4 h-4" />
               </button>
-              <div className="px-5 py-2 text-center w-12 text-sm font-medium">
+              <div
+                className="px-4 py-1 text-center w-12 text-sm sm:text-base font-semibold bg-[#be9f4e] text-white rounded-full shadow-sm flex items-center justify-center"
+                aria-live="polite"
+                aria-atomic="true"
+                title={`عدد العروض: ${desiredCount}`}
+              >
                 {desiredCount}
               </div>
               <button
                 type="button"
                 onClick={() => setDesiredCount((c) => Math.min(20, c + 1))}
-                className="px-3 py-2 rounded-r-full bg-neutral-100 hover:bg-neutral-200 text-lg"
+                className="p-2 rounded-full bg-white border border-neutral-200 text-[#be9f4e] hover:bg-[#be9f4e] hover:text-white transition-colors duration-150 flex items-center justify-center focus:outline-none  shadow-sm"
                 aria-label="زيادة"
+                title="زيادة"
               >
-                +
+                <Plus className="w-4 h-4" />
               </button>
             </div>
 
