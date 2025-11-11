@@ -301,24 +301,22 @@ export default function ProductPage() {
               <button
                 onClick={() => setActiveCategory(MEN)}
                 aria-pressed={activeCategory === MEN}
-                className={`px-4 py-2 rounded-md text-base sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 ${
+                className={`px-3 py-1.5 rounded-md text-sm sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
                   activeCategory === MEN
                     ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
                     : "text-neutral-700 hover:bg-neutral-100"
                 }`}
-                style={{ minWidth: 96 }}
               >
                 رجالي
               </button>
               <button
                 onClick={() => setActiveCategory(WOMEN)}
                 aria-pressed={activeCategory === WOMEN}
-                className={`px-4 py-2 rounded-md text-base sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 ${
+                className={`px-3 py-1.5 rounded-md text-sm sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
                   activeCategory === WOMEN
                     ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
                     : "text-neutral-700 hover:bg-neutral-100"
                 }`}
-                style={{ minWidth: 96 }}
               >
                 نسائي
               </button>
@@ -488,7 +486,7 @@ export default function ProductPage() {
       <div className="fixed inset-x-0 bottom-0 z-50">
         <div className="w-full bg-white border-t border-neutral-200 shadow-md">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
-            <div className="inline-flex items-center bg-white rounded-full shadow-sm gap-2 px-1">
+            <div className="inline-flex items-center gap-2 px-1">
               <button
                 type="button"
                 onClick={() => setDesiredCount((c) => Math.max(1, c - 1))}
