@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+# dotenv
+.env
+.env.local
+.env.production
+.env.development
+# Firebase cache
+.firebase/
 
 # Editor directories and files
 .vscode/*

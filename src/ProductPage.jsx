@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { Users2, Check, Plus, Minus } from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
+import { addOrder } from "./firestoreService";
 
 // Load images dynamically from assets using Vite's glob import
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
@@ -36,7 +37,7 @@ function buildItems(mapObj, category) {
 // Product Card: serve a low-res image by default and load full-res when selected
 const ProductCard = memo(
   ({ item, selected, disabled, onToggle }) => {
-    const lowResSrc = `${item.image}?width=200&quality=30`;
+    const lowResSrc = `${item.image}?width=120&quality=15`;
     const src = lowResSrc;
 
     return (
@@ -200,6 +201,84 @@ export default function ProductPage() {
 
   const handleOrderNow = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (totalSelected !== targetCount) {
+      alert("رجاءً أكمل اختيار العطور بحسب العرض");
+      return;
+    }
+
+    const form = e.target;
+    const formData = new FormData(form);
+    const customerName = (formData.get("customerName") || "").trim();
+    const phone = (formData.get("phone") || "").trim();
+    const province = (formData.get("province") || "").trim();
+    const address = (formData.get("address") || "").trim();
+    const notes = (formData.get("notes") || "").trim();
+
+    // Validate customer name
+    if (!customerName || customerName.length < 3) {
+      alert("رجاءً أدخل اسمك الكامل (3 أحرف على الأقل)");
+      return;
+    }
+
+    // Validate Egyptian phone number (must start with 01 and be 11 digits)
+    const phoneRegex = /^01[0125][0-9]{8}$/;
+    if (!phone || !phoneRegex.test(phone)) {
+      alert("رجاءً أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)");
+      return;
+    }
+
+    // Validate province
+    if (!province || province.length < 2) {
+      alert("رجاءً أدخل اسم المحافظة");
+      return;
+    }
+
+    // Validate address
+    if (!address || address.length < 10) {
+      alert("رجاءً أدخل عنوان تفصيلي (10 أحرف على الأقل)");
+      return;
+    }
+
+    // Build selected items array with basic metadata
+    const selectedIds = [...selectedMen, ...selectedWomen];
+    const findItem = (id) =>
+      allMen.find((i) => i.id === id) || allWomen.find((i) => i.id === id);
+    const items = selectedIds.map((id) => {
+      const it = findItem(id);
+      return it
+        ? { id: it.id, name: it.name, image: it.image, category: it.category }
+        : { id };
+    });
+
+    const order = {
+      customerName,
+      phone,
+      province,
+      address,
+      notes,
+      items,
+      offerSize,
+      desiredCount,
+      price,
+      delivery,
+      grandTotal,
+    };
+
+    try {
+      const id = await addOrder(order);
+      alert(`تم إنشاء الطلب بنجاح (رقم: ${id})`);
+      // clear selections and form
+      setSelectedMen(new Set());
+      setSelectedWomen(new Set());
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.");
+    }
   };
 
   return (
@@ -388,13 +467,7 @@ export default function ProductPage() {
           <form
             ref={formRef}
             className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              // Basic submit mock — do not show offer decomposition
-              alert(
-                `تم استلام طلبك!\nعدد العطور: ${totalSelected}\nالسعر: ${price} + التوصيل ${delivery} = ${grandTotal} جنيه`
-              );
-            }}
+            onSubmit={handleSubmit}
           >
             <h2 className="text-lg font-bold">تأكيد الطلب</h2>
 
@@ -403,7 +476,10 @@ export default function ProductPage() {
                 <label className="text-sm text-neutral-700">الاسم</label>
                 <input
                   required
+                  name="customerName"
                   type="text"
+                  minLength={3}
+                  maxLength={100}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
                   placeholder="اكتب اسمك الكامل"
                 />
@@ -412,16 +488,24 @@ export default function ProductPage() {
                 <label className="text-sm text-neutral-700">رقم الهاتف</label>
                 <input
                   required
+                  name="phone"
                   type="tel"
+                  pattern="01[0125][0-9]{8}"
+                  minLength={11}
+                  maxLength={11}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
                   placeholder="01XXXXXXXXX"
+                  title="أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)"
                 />
               </div>
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm text-neutral-700">المحافظه</label>
                 <input
                   required
+                  name="province"
                   type="text"
+                  minLength={2}
+                  maxLength={50}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
                   placeholder="اكتب اسم محافظتك"
                 />
@@ -430,7 +514,10 @@ export default function ProductPage() {
                 <label className="text-sm text-neutral-700">العنوان</label>
                 <input
                   required
+                  name="address"
                   type="text"
+                  minLength={10}
+                  maxLength={300}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
                   placeholder="المدينة، الشارع، أقرب علامة مميزة"
                 />
@@ -438,7 +525,9 @@ export default function ProductPage() {
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm text-neutral-700">ملاحظات</label>
                 <textarea
+                  name="notes"
                   rows={3}
+                  maxLength={500}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
                   placeholder="أي تفاصيل إضافية للطلب"
                 />
