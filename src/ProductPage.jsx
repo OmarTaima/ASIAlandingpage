@@ -38,9 +38,26 @@ function buildItems(mapObj, category) {
           .split("/")
           .pop()
           ?.replace(/\.[^.]+$/, "") ?? `${category}-${idx + 1}`;
+
+      // Parse "inspired by" information from filename
+      let displayName = nameFromFile;
+      const inspiredByMatch = nameFromFile.match(
+        /inspired?\s+[Bb]y\s+(.+?)\s+(\d+)$/i
+      );
+
+      if (inspiredByMatch) {
+        const brandName = inspiredByMatch[1].trim();
+        const version = inspiredByMatch[2];
+        displayName = `${brandName}`;
+      } else {
+        // For files without "inspired by" pattern (like women's numbered files)
+        displayName = nameFromFile;
+      }
+
       return {
         id: `${category}-${idx}-${nameFromFile}`,
-        name: nameFromFile,
+        name: displayName,
+        originalName: nameFromFile,
         category,
         image: url,
       };
@@ -94,8 +111,8 @@ const ProductCard = memo(
           />
         </div>
 
-        <div className="text-[10px] text-center truncate w-full leading-tight normal-case">
-          {item.name}
+        <div className="text-[10px] text-center w-full leading-tight normal-case px-1">
+          <div className="truncate font-medium">{item.name}</div>
         </div>
 
         {selected && (
@@ -130,6 +147,8 @@ export default function ProductPage() {
   const [showModal, setShowModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState("home"); // "home" or "pickup"
+  const [selectedBranch, setSelectedBranch] = useState("");
 
   // Refs
   const formRef = useRef(null);
@@ -150,7 +169,7 @@ export default function ProductPage() {
     return cnt * 250;
   }, [offerSize, desiredCount]);
 
-  const delivery = 40;
+  const delivery = deliveryMethod === "pickup" ? 0 : 40;
   const grandTotal = price + (price > 0 ? delivery : 0);
 
   // Keep refs in sync
@@ -224,13 +243,13 @@ export default function ProductPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(""); // Clear previous errors
-    
+
     // Check if items are selected first
     if (totalSelected === 0) {
       setErrorMessage("رجاءً اختر العطور أولاً");
       return;
     }
-    
+
     if (totalSelected !== targetCount) {
       setErrorMessage("رجاءً أكمل اختيار العطور بحسب العرض");
       return;
@@ -240,8 +259,6 @@ export default function ProductPage() {
     const formData = new FormData(form);
     const customerName = (formData.get("customerName") || "").trim();
     const phone = (formData.get("phone") || "").trim();
-    const province = (formData.get("province") || "").trim();
-    const address = (formData.get("address") || "").trim();
     const notes = (formData.get("notes") || "").trim();
 
     // Validate customer name
@@ -253,20 +270,37 @@ export default function ProductPage() {
     // Validate Egyptian phone number (must start with 01 and be 11 digits)
     const phoneRegex = /^01[0125][0-9]{8}$/;
     if (!phone || !phoneRegex.test(phone)) {
-      setErrorMessage("رجاءً أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)");
+      setErrorMessage(
+        "رجاءً أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)"
+      );
       return;
     }
 
-    // Validate province
-    if (!province || province.length < 2) {
-      setErrorMessage("رجاءً أدخل اسم المحافظة");
-      return;
-    }
+    let province = "";
+    let address = "";
+    let branch = "";
 
-    // Validate address
-    if (!address || address.length < 10) {
-      setErrorMessage("رجاءً أدخل عنوان تفصيلي (10 أحرف على الأقل)");
-      return;
+    if (deliveryMethod === "pickup") {
+      // Validate branch selection
+      branch = selectedBranch;
+      if (!branch) {
+        setErrorMessage("رجاءً اختر الفرع الذي تريد الاستلام منه");
+        return;
+      }
+    } else {
+      // Validate home delivery fields
+      province = (formData.get("province") || "").trim();
+      address = (formData.get("address") || "").trim();
+
+      if (!province || province.length < 2) {
+        setErrorMessage("رجاءً أدخل اسم المحافظة");
+        return;
+      }
+
+      if (!address || address.length < 10) {
+        setErrorMessage("رجاءً أدخل عنوان تفصيلي (10 أحرف على الأقل)");
+        return;
+      }
     }
 
     // Build selected items array with basic metadata
@@ -283,8 +317,10 @@ export default function ProductPage() {
     const order = {
       customerName,
       phone,
-      province,
-      address,
+      deliveryMethod,
+      branch: deliveryMethod === "pickup" ? branch : null,
+      province: deliveryMethod === "home" ? province : null,
+      address: deliveryMethod === "home" ? address : null,
       notes,
       items,
       offerSize,
@@ -302,17 +338,17 @@ export default function ProductPage() {
 
   const handleConfirmOrder = async () => {
     if (!pendingOrder) return;
-    
+
     setIsSubmitting(true);
     try {
       const id = await addOrder(pendingOrder);
       setShowModal(false);
       setPendingOrder(null);
       setErrorMessage("");
-      
+
       // Show success message
       alert(`تم إنشاء الطلب بنجاح (رقم: ${id})`);
-      
+
       // clear selections and form
       setSelectedMen(new Set());
       setSelectedWomen(new Set());
@@ -579,6 +615,42 @@ export default function ProductPage() {
               تأكيد الطلب
             </h2>
 
+            {/* Delivery Method Selection */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-neutral-700">
+                طريقة الاستلام
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeliveryMethod("home");
+                    setSelectedBranch("");
+                  }}
+                  className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 ${
+                    deliveryMethod === "home"
+                      ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300"
+                      : "bg-white text-neutral-700 border-2 border-amber-200 hover:border-amber-400"
+                  }`}
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  شحن للمنزل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMethod("pickup")}
+                  className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 ${
+                    deliveryMethod === "pickup"
+                      ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300"
+                      : "bg-white text-neutral-700 border-2 border-amber-200 hover:border-amber-400"
+                  }`}
+                >
+                  <MapPin className="w-5 h-5" />
+                  استلام من الفرع
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-sm text-neutral-700">الاسم</label>
@@ -606,30 +678,89 @@ export default function ProductPage() {
                   title="أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)"
                 />
               </div>
-              <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm text-neutral-700">المحافظه</label>
-                <input
-                  required
-                  name="province"
-                  type="text"
-                  minLength={2}
-                  maxLength={50}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
-                  placeholder="اكتب اسم محافظتك"
-                />
+
+              {/* Delivery fields overlay container - instant switching without flashing */}
+              <div
+                className="sm:col-span-2 relative"
+                style={{ minHeight: "150px" }}
+              >
+                {/* Pickup panel */}
+                <div
+                  className={`absolute inset-0 ${
+                    deliveryMethod === "pickup"
+                      ? "opacity-100 pointer-events-auto z-10"
+                      : "opacity-0 pointer-events-none z-0"
+                  }`}
+                  aria-hidden={deliveryMethod !== "pickup"}
+                >
+                  <label className="text-sm text-neutral-700 font-semibold">
+                    اختر الفرع
+                  </label>
+                  <select
+                    required={deliveryMethod === "pickup"}
+                    name="branch"
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    className="w-full rounded-lg border-2 border-amber-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
+                  >
+                    <option value="">-- اختر الفرع --</option>
+                    <option value="طنطا - شارع نادي المعلمين بجانب بوابة نادي طنطا">
+                      طنطا - شارع نادي المعلمين بجانب بوابة نادي طنطا
+                    </option>
+                    <option value="طنطا - شارع سعيد تقاطع شارع محب">
+                      طنطا - شارع سعيد تقاطع شارع محب
+                    </option>
+                    <option value="طنطا - شارع الأشرف مول أوت ليت">
+                      طنطا - شارع الأشرف مول أوت ليت
+                    </option>
+                    <option value="السادات - مول سيڤن ستارز ستور 110 الدور الأرضي">
+                      السادات - مول سيڤن ستارز
+                    </option>
+                    <option value="الإسكندرية - سموحة شارع مصطفى كامل أمام أورنج">
+                      الإسكندرية - سموحة
+                    </option>
+                    <option value="السويس - الملاحة، برج العزيزية بجوار كافيه جواهر البن">
+                      السويس - الملاحة
+                    </option>
+                  </select>
+                </div>
+
+                {/* Home delivery panel */}
+                <div
+                  className={`absolute inset-0 space-y-3 ${
+                    deliveryMethod === "home"
+                      ? "opacity-100 pointer-events-auto z-10"
+                      : "opacity-0 pointer-events-none z-0"
+                  }`}
+                  aria-hidden={deliveryMethod !== "home"}
+                >
+                  <div>
+                    <label className="text-sm text-neutral-700">المحافظه</label>
+                    <input
+                      required={deliveryMethod === "home"}
+                      name="province"
+                      type="text"
+                      minLength={2}
+                      maxLength={50}
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                      placeholder="اكتب اسم محافظتك"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-neutral-700">العنوان</label>
+                    <input
+                      required={deliveryMethod === "home"}
+                      name="address"
+                      type="text"
+                      minLength={10}
+                      maxLength={300}
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                      placeholder="المدينة، الشارع، أقرب علامة مميزة"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="sm:col-span-2 space-y-1">
-                <label className="text-sm text-neutral-700">العنوان</label>
-                <input
-                  required
-                  name="address"
-                  type="text"
-                  minLength={10}
-                  maxLength={300}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
-                  placeholder="المدينة، الشارع، أقرب علامة مميزة"
-                />
-              </div>
+
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm text-neutral-700">ملاحظات</label>
                 <textarea
@@ -669,11 +800,23 @@ export default function ProductPage() {
             {errorMessage && (
               <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3 animate-pulse">
                 <div className="bg-red-500 rounded-full p-1 mt-0.5">
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </div>
-                <p className="text-red-700 font-semibold text-sm flex-1">{errorMessage}</p>
+                <p className="text-red-700 font-semibold text-sm flex-1">
+                  {errorMessage}
+                </p>
               </div>
             )}
 
@@ -706,8 +849,18 @@ export default function ProductPage() {
                   className="p-2 hover:bg-white/20 rounded-full transition-colors"
                   disabled={isSubmitting}
                 >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -717,28 +870,75 @@ export default function ProductPage() {
             <div className="p-6 space-y-4">
               {/* Customer Info */}
               <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                <h3 className="font-bold text-lg mb-3 text-amber-900">معلومات العميل</h3>
+                <h3 className="font-bold text-lg mb-3 text-amber-900">
+                  معلومات العميل
+                </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
-                    <span className="font-semibold text-neutral-700 min-w-20">الاسم:</span>
-                    <span className="text-neutral-900">{pendingOrder.customerName}</span>
+                    <span className="font-semibold text-neutral-700 min-w-20">
+                      الاسم:
+                    </span>
+                    <span className="text-neutral-900">
+                      {pendingOrder.customerName}
+                    </span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="font-semibold text-neutral-700 min-w-20">الهاتف:</span>
-                    <span className="text-neutral-900" dir="ltr">{pendingOrder.phone}</span>
+                    <span className="font-semibold text-neutral-700 min-w-20">
+                      الهاتف:
+                    </span>
+                    <span className="text-neutral-900" dir="ltr">
+                      {pendingOrder.phone}
+                    </span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="font-semibold text-neutral-700 min-w-20">المحافظة:</span>
-                    <span className="text-neutral-900">{pendingOrder.province}</span>
+                    <span className="font-semibold text-neutral-700 min-w-20">
+                      طريقة الاستلام:
+                    </span>
+                    <span className="text-neutral-900">
+                      {pendingOrder.deliveryMethod === "pickup"
+                        ? "استلام من الفرع"
+                        : "شحن للمنزل"}
+                    </span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="font-semibold text-neutral-700 min-w-20">العنوان:</span>
-                    <span className="text-neutral-900">{pendingOrder.address}</span>
-                  </div>
+                  {pendingOrder.deliveryMethod === "pickup" &&
+                    pendingOrder.branch && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-semibold text-neutral-700 min-w-20">
+                          الفرع:
+                        </span>
+                        <span className="text-neutral-900">
+                          {pendingOrder.branch}
+                        </span>
+                      </div>
+                    )}
+                  {pendingOrder.deliveryMethod === "home" && (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <span className="font-semibold text-neutral-700 min-w-20">
+                          المحافظة:
+                        </span>
+                        <span className="text-neutral-900">
+                          {pendingOrder.province}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="font-semibold text-neutral-700 min-w-20">
+                          العنوان:
+                        </span>
+                        <span className="text-neutral-900">
+                          {pendingOrder.address}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   {pendingOrder.notes && (
                     <div className="flex items-start gap-2">
-                      <span className="font-semibold text-neutral-700 min-w-20">ملاحظات:</span>
-                      <span className="text-neutral-900">{pendingOrder.notes}</span>
+                      <span className="font-semibold text-neutral-700 min-w-20">
+                        ملاحظات:
+                      </span>
+                      <span className="text-neutral-900">
+                        {pendingOrder.notes}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -746,26 +946,36 @@ export default function ProductPage() {
 
               {/* Order Details */}
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <h3 className="font-bold text-lg mb-3 text-green-900">تفاصيل الطلب</h3>
+                <h3 className="font-bold text-lg mb-3 text-green-900">
+                  تفاصيل الطلب
+                </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-neutral-700">نوع العرض:</span>
-                    <span className="font-semibold text-neutral-900">{pendingOrder.offerSize} عطور</span>
+                    <span className="font-semibold text-neutral-900">
+                      {pendingOrder.offerSize} عطور
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-neutral-700">عدد العروض:</span>
-                    <span className="font-semibold text-neutral-900">{pendingOrder.desiredCount}</span>
+                    <span className="font-semibold text-neutral-900">
+                      {pendingOrder.desiredCount}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-neutral-700">إجمالي العطور:</span>
-                    <span className="font-semibold text-neutral-900">{pendingOrder.items.length} عطر</span>
+                    <span className="font-semibold text-neutral-900">
+                      {pendingOrder.items.length} عطر
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Selected Items Preview */}
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <h3 className="font-bold text-lg mb-3 text-blue-900">العطور المختارة</h3>
+                <h3 className="font-bold text-lg mb-3 text-blue-900">
+                  العطور المختارة
+                </h3>
                 <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
                   {pendingOrder.items.map((item, idx) => (
                     <div key={idx} className="relative">
@@ -788,15 +998,21 @@ export default function ProductPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر العطور:</span>
-                    <span className="font-semibold">{pendingOrder.price} جنيه</span>
+                    <span className="font-semibold">
+                      {pendingOrder.price} جنيه
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر التوصيل:</span>
-                    <span className="font-semibold">{pendingOrder.delivery} جنيه</span>
+                    <span className="font-semibold">
+                      {pendingOrder.delivery} جنيه
+                    </span>
                   </div>
                   <div className="flex justify-between border-t border-neutral-300 pt-2 mt-2">
                     <span className="font-bold text-lg">الإجمالي:</span>
-                    <span className="font-bold text-xl text-green-600">{pendingOrder.grandTotal} جنيه</span>
+                    <span className="font-bold text-xl text-green-600">
+                      {pendingOrder.grandTotal} جنيه
+                    </span>
                   </div>
                 </div>
               </div>
@@ -920,45 +1136,33 @@ export default function ProductPage() {
                 <MapPin className="w-5 h-5" />
                 فروعنا
               </h3>
-              <div className="space-y-3 text-sm">
-                <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
-                  <div className="font-semibold text-amber-200 mb-1">
-                    مدينة طنطا
-                  </div>
-                  <ul className="space-y-1 text-neutral-300 text-xs">
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>شارع نادي المعلمين بجانب بوابة نادي طنطا</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>شارع سعيد تقاطع شارع محب</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>شارع الأشرف مول أوت ليت</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
-                  <div className="font-semibold text-amber-200 mb-1">
-                    فروع أخرى
-                  </div>
-                  <ul className="space-y-1 text-neutral-300 text-xs">
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>السادات — مول سيڤن ستارز</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>الإسكندرية — سموحة</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-amber-400 mt-0.5">•</span>
-                      <span>السويس — الملاحة</span>
-                    </li>
-                  </ul>
-                </div>
+              <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
+                <ul className="space-y-2 text-neutral-300 text-xs">
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>طنطا — شارع نادي المعلمين بجانب بوابة نادي طنطا</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>طنطا — شارع سعيد تقاطع شارع محب</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>طنطا — شارع الأشرف مول أوت ليت</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>السادات — مول سيڤن ستارز</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>الإسكندرية — سموحة</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400 mt-0.5">•</span>
+                    <span>السويس — الملاحة</span>
+                  </li>
+                </ul>
               </div>
             </div>
 
