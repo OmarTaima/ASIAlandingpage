@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Users2, Check, Plus, Minus, Star, ShoppingBag, Sparkles, Heart, MapPin, Phone, Mail, Globe, MessageCircle } from "lucide-react";
+import {
+  Users2,
+  Check,
+  Plus,
+  Minus,
+  Star,
+  ShoppingBag,
+  Sparkles,
+  Heart,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  MessageCircle,
+} from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
@@ -112,6 +126,10 @@ export default function ProductPage() {
   const [selectedWomen, setSelectedWomen] = useState(new Set());
   const [desiredCount, setDesiredCount] = useState(1);
   const [offerSize, setOfferSize] = useState(2);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Refs
   const formRef = useRef(null);
@@ -205,8 +223,16 @@ export default function ProductPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage(""); // Clear previous errors
+    
+    // Check if items are selected first
+    if (totalSelected === 0) {
+      setErrorMessage("رجاءً اختر العطور أولاً");
+      return;
+    }
+    
     if (totalSelected !== targetCount) {
-      alert("رجاءً أكمل اختيار العطور بحسب العرض");
+      setErrorMessage("رجاءً أكمل اختيار العطور بحسب العرض");
       return;
     }
 
@@ -220,26 +246,26 @@ export default function ProductPage() {
 
     // Validate customer name
     if (!customerName || customerName.length < 3) {
-      alert("رجاءً أدخل اسمك الكامل (3 أحرف على الأقل)");
+      setErrorMessage("رجاءً أدخل اسمك الكامل (3 أحرف على الأقل)");
       return;
     }
 
     // Validate Egyptian phone number (must start with 01 and be 11 digits)
     const phoneRegex = /^01[0125][0-9]{8}$/;
     if (!phone || !phoneRegex.test(phone)) {
-      alert("رجاءً أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)");
+      setErrorMessage("رجاءً أدخل رقم هاتف مصري صحيح (يبدأ بـ 01 ويتكون من 11 رقم)");
       return;
     }
 
     // Validate province
     if (!province || province.length < 2) {
-      alert("رجاءً أدخل اسم المحافظة");
+      setErrorMessage("رجاءً أدخل اسم المحافظة");
       return;
     }
 
     // Validate address
     if (!address || address.length < 10) {
-      alert("رجاءً أدخل عنوان تفصيلي (10 أحرف على الأقل)");
+      setErrorMessage("رجاءً أدخل عنوان تفصيلي (10 أحرف على الأقل)");
       return;
     }
 
@@ -266,23 +292,47 @@ export default function ProductPage() {
       price,
       delivery,
       grandTotal,
+      form,
     };
 
+    // Show confirmation modal instead of submitting directly
+    setPendingOrder(order);
+    setShowModal(true);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!pendingOrder) return;
+    
+    setIsSubmitting(true);
     try {
-      const id = await addOrder(order);
+      const id = await addOrder(pendingOrder);
+      setShowModal(false);
+      setPendingOrder(null);
+      setErrorMessage("");
+      
+      // Show success message
       alert(`تم إنشاء الطلب بنجاح (رقم: ${id})`);
+      
       // clear selections and form
       setSelectedMen(new Set());
       setSelectedWomen(new Set());
-      form.reset();
+      if (pendingOrder.form) {
+        pendingOrder.form.reset();
+      }
     } catch (err) {
       console.error(err);
-      alert("حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.");
+      setErrorMessage("حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.");
+      setShowModal(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div dir="rtl" className="min-h-svh bg-linear-to-br from-amber-50 via-white to-orange-50 text-neutral-900">
+    <div
+      dir="rtl"
+      className="min-h-svh bg-linear-to-br from-amber-50 via-white to-orange-50 text-neutral-900"
+    >
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-lg border-b border-amber-200 shadow-sm">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -293,7 +343,9 @@ export default function ProductPage() {
               className="w-10 h-10 object-cover rounded-full ring-2 ring-[#be9f4e] ring-offset-2 animate-pulse"
             />
             <div className="leading-tight">
-              <div className="font-bold text-lg bg-linear-to-r from-[#be9f4e] to-[#8b7038] bg-clip-text text-transparent">ASIA</div>
+              <div className="font-bold text-lg bg-linear-to-r from-[#be9f4e] to-[#8b7038] bg-clip-text text-transparent">
+                ASIA
+              </div>
               <div className="text-xs text-amber-600 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
                 عطور فاخرة
@@ -327,31 +379,44 @@ export default function ProductPage() {
         <section className="space-y-5">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-extrabold bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] bg-clip-text text-transparent animate-pulse">عطور مميزة</h1>
+              <h1 className="text-3xl font-extrabold bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] bg-clip-text text-transparent animate-pulse">
+                عطور مميزة
+              </h1>
               <Heart className="w-6 h-6 text-red-500 fill-red-500 animate-pulse" />
             </div>
-            
+
             {/* Star Rating */}
             <div className="flex items-center gap-3 bg-linear-to-r from-amber-50 to-orange-50 rounded-lg px-4 py-3 border border-amber-200 shadow-md">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4].map((star) => (
-                  <Star key={star} className="w-5 h-5 text-amber-500 fill-amber-500" />
+                  <Star
+                    key={star}
+                    className="w-5 h-5 text-amber-500 fill-amber-500"
+                  />
                 ))}
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500" style={{ clipPath: 'inset(0 80% 0 0)' }} />
-                <Star className="w-5 h-5 text-amber-500" style={{ clipPath: 'inset(0 0 0 20%)' }} />
+                <Star
+                  className="w-5 h-5 text-amber-500 fill-amber-500"
+                  style={{ clipPath: "inset(0 80% 0 0)" }}
+                />
+                <Star
+                  className="w-5 h-5 text-amber-500"
+                  style={{ clipPath: "inset(0 0 0 20%)" }}
+                />
               </div>
               <span className="text-2xl font-bold text-amber-700">4.2</span>
               <span className="text-sm text-amber-600">من 5</span>
-              <span className="text-xs text-neutral-500 mr-auto">(٢٤٥+ تقييم)</span>
+              <span className="text-xs text-neutral-500 mr-auto">
+                (٢٤٥+ تقييم)
+              </span>
             </div>
-            
+
             <p className="text-sm text-neutral-600 leading-relaxed">
               <span className="inline-flex items-center gap-1">
                 <Sparkles className="w-4 h-4 text-amber-500" />
                 استمتع بتجربة عطرية فاخرة
               </span>
-              . اختر عطورك المفضلة من تشكيلتنا الرجالية
-              والنسائية، مع عروض مميزة لتوفير أكبر.
+              . اختر عطورك المفضلة من تشكيلتنا الرجالية والنسائية، مع عروض مميزة
+              لتوفير أكبر.
             </p>
             <div className="text-red-600 text-xs">
               ملاحظة: اختر نوع العرض أولاً ثم حدد عدد هذه العروض باستخدام العداد
@@ -370,7 +435,12 @@ export default function ProductPage() {
                 aria-pressed={offerSize === 2}
               >
                 <span className="font-bold text-base">🎁 عرض 2</span>
-                <span className={"text-xs " + (offerSize === 2 ? "text-amber-100" : "text-neutral-500")}>
+                <span
+                  className={
+                    "text-xs " +
+                    (offerSize === 2 ? "text-amber-100" : "text-neutral-500")
+                  }
+                >
                   2 عطور — 500 جنيه
                 </span>
               </button>
@@ -387,7 +457,12 @@ export default function ProductPage() {
                 aria-pressed={offerSize === 4}
               >
                 <span className="font-bold text-base">🎁 عرض 4</span>
-                <span className={"text-xs " + (offerSize === 4 ? "text-amber-100" : "text-neutral-500")}>
+                <span
+                  className={
+                    "text-xs " +
+                    (offerSize === 4 ? "text-amber-100" : "text-neutral-500")
+                  }
+                >
                   4 عطور — 800 جنيه
                 </span>
               </button>
@@ -591,11 +666,20 @@ export default function ProductPage() {
               </div>
             </div>
 
+            {errorMessage && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3 animate-pulse">
+                <div className="bg-red-500 rounded-full p-1 mt-0.5">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <p className="text-red-700 font-semibold text-sm flex-1">{errorMessage}</p>
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full px-6 py-3 rounded-xl bg-linear-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              disabled={totalSelected !== targetCount}
-              title={totalSelected !== targetCount ? "أكمل اختيار العطور" : ""}
+              className="w-full px-6 py-3 rounded-xl bg-linear-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
             >
               <Check className="w-5 h-5" />
               تأكيد الطلب
@@ -605,6 +689,149 @@ export default function ProductPage() {
           </form>
         </section>
       </main>
+
+      {/* Confirmation Modal */}
+      {showModal && pendingOrder && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="bg-linear-to-r from-[#be9f4e] to-[#8b7038] text-white p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <ShoppingBag className="w-6 h-6" />
+                  تأكيد الطلب
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  disabled={isSubmitting}
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              {/* Customer Info */}
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <h3 className="font-bold text-lg mb-3 text-amber-900">معلومات العميل</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 min-w-20">الاسم:</span>
+                    <span className="text-neutral-900">{pendingOrder.customerName}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 min-w-20">الهاتف:</span>
+                    <span className="text-neutral-900" dir="ltr">{pendingOrder.phone}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 min-w-20">المحافظة:</span>
+                    <span className="text-neutral-900">{pendingOrder.province}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 min-w-20">العنوان:</span>
+                    <span className="text-neutral-900">{pendingOrder.address}</span>
+                  </div>
+                  {pendingOrder.notes && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-semibold text-neutral-700 min-w-20">ملاحظات:</span>
+                      <span className="text-neutral-900">{pendingOrder.notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Details */}
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <h3 className="font-bold text-lg mb-3 text-green-900">تفاصيل الطلب</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-700">نوع العرض:</span>
+                    <span className="font-semibold text-neutral-900">{pendingOrder.offerSize} عطور</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-700">عدد العروض:</span>
+                    <span className="font-semibold text-neutral-900">{pendingOrder.desiredCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-700">إجمالي العطور:</span>
+                    <span className="font-semibold text-neutral-900">{pendingOrder.items.length} عطر</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Items Preview */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="font-bold text-lg mb-3 text-blue-900">العطور المختارة</h3>
+                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                  {pendingOrder.items.map((item, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-16 object-cover rounded-lg border border-blue-300"
+                      />
+                      <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                        {idx + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price Summary */}
+              <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
+                <h3 className="font-bold text-lg mb-3">الملخص المالي</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-700">سعر العطور:</span>
+                    <span className="font-semibold">{pendingOrder.price} جنيه</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-700">سعر التوصيل:</span>
+                    <span className="font-semibold">{pendingOrder.delivery} جنيه</span>
+                  </div>
+                  <div className="flex justify-between border-t border-neutral-300 pt-2 mt-2">
+                    <span className="font-bold text-lg">الإجمالي:</span>
+                    <span className="font-bold text-xl text-green-600">{pendingOrder.grandTotal} جنيه</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-neutral-50 rounded-b-2xl flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-6 py-3 rounded-xl bg-white border-2 border-neutral-300 text-neutral-700 font-bold hover:bg-neutral-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                تعديل
+              </button>
+              <button
+                onClick={handleConfirmOrder}
+                disabled={isSubmitting}
+                className="flex-1 px-6 py-3 rounded-xl bg-linear-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                    جاري الإرسال...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    تأكيد نهائي
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky bottom bar with counter and order button (full width) */}
       <div className="fixed inset-x-0 bottom-0 z-50">
@@ -655,7 +882,6 @@ export default function ProductPage() {
         {/* Main Footer Content */}
         <div className="mx-auto max-w-6xl px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
             {/* Brand Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -665,19 +891,25 @@ export default function ProductPage() {
                   className="w-12 h-12 object-cover rounded-full ring-2 ring-amber-400 ring-offset-2 ring-offset-neutral-900"
                 />
                 <div>
-                  <h3 className="text-2xl font-bold bg-linear-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">ASIA</h3>
+                  <h3 className="text-2xl font-bold bg-linear-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">
+                    ASIA
+                  </h3>
                   <p className="text-xs text-amber-300">عطور فاخرة منذ سنوات</p>
                 </div>
               </div>
               <p className="text-sm text-neutral-300 leading-relaxed">
-                نقدم لك أرقى العطور الرجالية والنسائية بأفضل الأسعار. جودة عالية وخدمة متميزة.
+                نقدم لك أرقى العطور الرجالية والنسائية بأفضل الأسعار. جودة عالية
+                وخدمة متميزة.
               </p>
               <div className="flex items-center gap-2 pt-2">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" style={{ clipPath: 'inset(0 80% 0 0)' }} />
+                <Star
+                  className="w-4 h-4 text-amber-400 fill-amber-400"
+                  style={{ clipPath: "inset(0 80% 0 0)" }}
+                />
                 <span className="text-xs text-amber-300 mr-2">4.2 من 5</span>
               </div>
             </div>
@@ -690,7 +922,9 @@ export default function ProductPage() {
               </h3>
               <div className="space-y-3 text-sm">
                 <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
-                  <div className="font-semibold text-amber-200 mb-1">مدينة طنطا</div>
+                  <div className="font-semibold text-amber-200 mb-1">
+                    مدينة طنطا
+                  </div>
                   <ul className="space-y-1 text-neutral-300 text-xs">
                     <li className="flex items-start gap-2">
                       <span className="text-amber-400 mt-0.5">•</span>
@@ -707,7 +941,9 @@ export default function ProductPage() {
                   </ul>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
-                  <div className="font-semibold text-amber-200 mb-1">فروع أخرى</div>
+                  <div className="font-semibold text-amber-200 mb-1">
+                    فروع أخرى
+                  </div>
                   <ul className="space-y-1 text-neutral-300 text-xs">
                     <li className="flex items-start gap-2">
                       <span className="text-amber-400 mt-0.5">•</span>
@@ -733,7 +969,7 @@ export default function ProductPage() {
                 تواصل معنا
               </h3>
               <div className="space-y-3">
-                <a 
+                <a
                   href="tel:+201099949245"
                   className="flex items-center gap-3 text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-all hover:scale-105 border border-white/10 group"
                 >
@@ -742,11 +978,13 @@ export default function ProductPage() {
                   </div>
                   <div dir="ltr" className="text-left">
                     <div className="text-xs text-neutral-400">Phone</div>
-                    <div className="text-amber-200 font-medium">+20 10 99949245</div>
+                    <div className="text-amber-200 font-medium">
+                      +20 10 99949245
+                    </div>
                   </div>
                 </a>
 
-                <a 
+                <a
                   href="https://wa.me/201090988215"
                   target="_blank"
                   rel="noreferrer"
@@ -757,11 +995,13 @@ export default function ProductPage() {
                   </div>
                   <div dir="ltr" className="text-left">
                     <div className="text-xs text-neutral-400">WhatsApp</div>
-                    <div className="text-green-300 font-medium">+20 10 90988215</div>
+                    <div className="text-green-300 font-medium">
+                      +20 10 90988215
+                    </div>
                   </div>
                 </a>
 
-                <a 
+                <a
                   href="mailto:asiaaegy@gmail.com"
                   className="flex items-center gap-3 text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-all hover:scale-105 border border-white/10 group"
                 >
@@ -770,11 +1010,13 @@ export default function ProductPage() {
                   </div>
                   <div dir="ltr" className="text-left">
                     <div className="text-xs text-neutral-400">Email</div>
-                    <div className="text-blue-300 font-medium text-xs">asiaaegy@gmail.com</div>
+                    <div className="text-blue-300 font-medium text-xs">
+                      asiaaegy@gmail.com
+                    </div>
                   </div>
                 </a>
 
-                <a 
+                <a
                   href="https://asiaegy.com"
                   target="_blank"
                   rel="noreferrer"
@@ -785,7 +1027,9 @@ export default function ProductPage() {
                   </div>
                   <div dir="ltr" className="text-left">
                     <div className="text-xs text-neutral-400">Website</div>
-                    <div className="text-purple-300 font-medium">asiaegy.com</div>
+                    <div className="text-purple-300 font-medium">
+                      asiaegy.com
+                    </div>
                   </div>
                 </a>
               </div>
@@ -799,11 +1043,15 @@ export default function ProductPage() {
             <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm">
               <div className="flex items-center gap-2 text-neutral-400">
                 <Heart className="w-4 h-4 text-red-400 fill-red-400" />
-                <span>جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA</span>
+                <span>
+                  جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA
+                </span>
               </div>
               <div className="flex items-center gap-2 text-neutral-400">
                 <MapPin className="w-4 h-4 text-amber-400" />
-                <span className="text-xs">21 شارع نادي المعلمين، طنطا، مصر</span>
+                <span className="text-xs">
+                  21 شارع نادي المعلمين، طنطا، مصر
+                </span>
               </div>
             </div>
           </div>
