@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import { Users2, Check, Plus, Minus } from "lucide-react";
+import { Users2, Check, Plus, Minus, Star, ShoppingBag, Sparkles, Heart, MapPin, Phone, Mail, Globe, MessageCircle } from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
@@ -282,21 +282,27 @@ export default function ProductPage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-svh bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-neutral-200">
+    <div dir="rtl" className="min-h-svh bg-linear-to-br from-amber-50 via-white to-orange-50 text-neutral-900">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-lg border-b border-amber-200 shadow-sm">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Logo image */}
             <img
               src={logoImg}
               alt="ASIA logo"
-              className="w-10 h-10 object-cover rounded-full"
+              className="w-10 h-10 object-cover rounded-full ring-2 ring-[#be9f4e] ring-offset-2 animate-pulse"
             />
             <div className="leading-tight">
-              <div className="font-bold text-lg">ASIA</div>
+              <div className="font-bold text-lg bg-linear-to-r from-[#be9f4e] to-[#8b7038] bg-clip-text text-transparent">ASIA</div>
+              <div className="text-xs text-amber-600 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                عطور فاخرة
+              </div>
             </div>
           </div>
-          <div />
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-[#be9f4e] animate-bounce" />
+          </div>
         </div>
       </header>
 
@@ -319,10 +325,32 @@ export default function ProductPage() {
 
         {/* Details + Selector */}
         <section className="space-y-5">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-extrabold">عطور مميزة</h1>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-extrabold bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] bg-clip-text text-transparent animate-pulse">عطور مميزة</h1>
+              <Heart className="w-6 h-6 text-red-500 fill-red-500 animate-pulse" />
+            </div>
+            
+            {/* Star Rating */}
+            <div className="flex items-center gap-3 bg-linear-to-r from-amber-50 to-orange-50 rounded-lg px-4 py-3 border border-amber-200 shadow-md">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4].map((star) => (
+                  <Star key={star} className="w-5 h-5 text-amber-500 fill-amber-500" />
+                ))}
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" style={{ clipPath: 'inset(0 80% 0 0)' }} />
+                <Star className="w-5 h-5 text-amber-500" style={{ clipPath: 'inset(0 0 0 20%)' }} />
+              </div>
+              <span className="text-2xl font-bold text-amber-700">4.2</span>
+              <span className="text-sm text-amber-600">من 5</span>
+              <span className="text-xs text-neutral-500 mr-auto">(٢٤٥+ تقييم)</span>
+            </div>
+            
             <p className="text-sm text-neutral-600 leading-relaxed">
-              استمتع بتجربة عطرية فاخرة. اختر عطورك المفضلة من تشكيلتنا الرجالية
+              <span className="inline-flex items-center gap-1">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                استمتع بتجربة عطرية فاخرة
+              </span>
+              . اختر عطورك المفضلة من تشكيلتنا الرجالية
               والنسائية، مع عروض مميزة لتوفير أكبر.
             </p>
             <div className="text-red-600 text-xs">
@@ -334,15 +362,15 @@ export default function ProductPage() {
                 type="button"
                 onClick={() => setOfferSize(2)}
                 className={
-                  "flex flex-col items-center px-3 py-2 rounded-md text-sm text-center " +
+                  "flex flex-col items-center px-4 py-3 rounded-xl text-sm text-center transition-all duration-300 transform hover:scale-105 " +
                   (offerSize === 2
-                    ? "bg-neutral-900 text-white"
-                    : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50")
+                    ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300 ring-offset-2"
+                    : "bg-white text-neutral-700 border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 shadow-md")
                 }
                 aria-pressed={offerSize === 2}
               >
-                <span className="font-medium">عرض 2</span>
-                <span className="text-xs text-neutral-400">
+                <span className="font-bold text-base">🎁 عرض 2</span>
+                <span className={"text-xs " + (offerSize === 2 ? "text-amber-100" : "text-neutral-500")}>
                   2 عطور — 500 جنيه
                 </span>
               </button>
@@ -351,15 +379,15 @@ export default function ProductPage() {
                 type="button"
                 onClick={() => setOfferSize(4)}
                 className={
-                  "flex flex-col items-center px-3 py-2 rounded-md text-sm text-center " +
+                  "flex flex-col items-center px-4 py-3 rounded-xl text-sm text-center transition-all duration-300 transform hover:scale-105 " +
                   (offerSize === 4
-                    ? "bg-neutral-900 text-white"
-                    : "bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-50")
+                    ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300 ring-offset-2"
+                    : "bg-white text-neutral-700 border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 shadow-md")
                 }
                 aria-pressed={offerSize === 4}
               >
-                <span className="font-medium">عرض 4</span>
-                <span className="text-xs text-neutral-400">
+                <span className="font-bold text-base">🎁 عرض 4</span>
+                <span className={"text-xs " + (offerSize === 4 ? "text-amber-100" : "text-neutral-500")}>
                   4 عطور — 800 جنيه
                 </span>
               </button>
@@ -368,46 +396,48 @@ export default function ProductPage() {
           <div>
             <button
               onClick={handleOrderNow}
-              className="w-full mt-2 px-4 py-2 rounded-lg bg-[#be9f4e] text-white hover:bg-[#a67f3e]"
+              className="w-full mt-2 px-6 py-3 rounded-xl bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 animate-pulse"
             >
+              <ShoppingBag className="w-5 h-5" />
               اطلب الآن
+              <Sparkles className="w-5 h-5" />
             </button>
           </div>
           {/* counter removed from inline details — moved to sticky bottom bar */}
 
           <div className="flex items-center gap-3 text-sm">
-            <div className="inline-flex rounded-lg border border-neutral-200 p-1 bg-white">
+            <div className="inline-flex rounded-xl border-2 border-amber-200 p-1 bg-linear-to-r from-amber-50 to-orange-50 shadow-md">
               <button
                 onClick={() => setActiveCategory(MEN)}
                 aria-pressed={activeCategory === MEN}
-                className={`px-3 py-1.5 rounded-md text-sm sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
+                className={`px-3 py-1.5 rounded-lg text-sm sm:text-lg transition-all duration-300 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
                   activeCategory === MEN
-                    ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
-                    : "text-neutral-700 hover:bg-neutral-100"
+                    ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300 transform scale-105 font-semibold"
+                    : "text-neutral-700 hover:bg-white hover:shadow-md"
                 }`}
               >
-                رجالي
+                👔 رجالي
               </button>
               <button
                 onClick={() => setActiveCategory(WOMEN)}
                 aria-pressed={activeCategory === WOMEN}
-                className={`px-3 py-1.5 rounded-md text-sm sm:text-lg transition-transform duration-150 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
+                className={`px-3 py-1.5 rounded-lg text-sm sm:text-lg transition-all duration-300 flex items-center justify-center gap-2 min-w-18 sm:min-w-24 ${
                   activeCategory === WOMEN
-                    ? "bg-[#be9f4e] text-white shadow-md ring-2 ring-[#be9f4e] transform scale-105 font-semibold"
-                    : "text-neutral-700 hover:bg-neutral-100"
+                    ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300 transform scale-105 font-semibold"
+                    : "text-neutral-700 hover:bg-white hover:shadow-md"
                 }`}
               >
-                نسائي
+                👗 نسائي
               </button>
             </div>
-            <div className="ms-auto inline-flex items-center gap-2 text-sm">
-              <Users2 className="size-4 text-neutral-500" />
-              <span>
+            <div className="ms-auto inline-flex items-center gap-2 text-sm bg-white rounded-full px-3 py-1.5 shadow-md border border-amber-200">
+              <Users2 className="size-4 text-[#be9f4e] animate-pulse" />
+              <span className="font-semibold">
                 المختار: {totalSelected}
                 {targetCount ? ` / ${targetCount}` : ""}
               </span>
               {targetCount ? (
-                <span className="text-[#a67f3e] bg-[#fffaf0] border border-[#f0e6c2] px-2 py-0.5 rounded-full">
+                <span className="text-white bg-linear-to-r from-orange-500 to-red-500 px-3 py-1 rounded-full font-bold animate-bounce shadow-md">
                   متبقي: {remaining}
                 </span>
               ) : null}
@@ -466,10 +496,13 @@ export default function ProductPage() {
           {/* Order form */}
           <form
             ref={formRef}
-            className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4"
+            className="rounded-2xl border-2 border-amber-300 bg-linear-to-br from-white to-amber-50 p-6 space-y-4 shadow-xl"
             onSubmit={handleSubmit}
           >
-            <h2 className="text-lg font-bold">تأكيد الطلب</h2>
+            <h2 className="text-2xl font-bold bg-linear-to-r from-[#be9f4e] to-[#8b7038] bg-clip-text text-transparent flex items-center gap-2">
+              <ShoppingBag className="w-6 h-6 text-[#be9f4e]" />
+              تأكيد الطلب
+            </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -560,11 +593,13 @@ export default function ProductPage() {
 
             <button
               type="submit"
-              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-neutral-900 text-white hover:bg-black disabled:opacity-50"
+              className="w-full px-6 py-3 rounded-xl bg-linear-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               disabled={totalSelected !== targetCount}
               title={totalSelected !== targetCount ? "أكمل اختيار العطور" : ""}
             >
+              <Check className="w-5 h-5" />
               تأكيد الطلب
+              <Sparkles className="w-5 h-5" />
             </button>
             {/* no offer requirement; user selects desired count using the counter above */}
           </form>
@@ -573,20 +608,20 @@ export default function ProductPage() {
 
       {/* Sticky bottom bar with counter and order button (full width) */}
       <div className="fixed inset-x-0 bottom-0 z-50">
-        <div className="w-full bg-white border-t border-neutral-200 shadow-md">
+        <div className="w-full bg-linear-to-r from-amber-50 via-white to-orange-50 border-t-2 border-amber-300 shadow-2xl backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
-            <div className="inline-flex items-center gap-2 px-1">
+            <div className="inline-flex items-center gap-2 px-1 bg-white rounded-full shadow-lg border-2 border-amber-200">
               <button
                 type="button"
                 onClick={() => setDesiredCount((c) => Math.max(1, c - 1))}
-                className="p-2 rounded-full bg-white border border-neutral-200 text-[#be9f4e] hover:bg-[#be9f4e] hover:text-white transition-colors duration-150 flex items-center justify-center focus:outline-none shadow-sm"
+                className="p-2 rounded-full bg-linear-to-br from-red-500 to-pink-500 border-2 border-red-300 text-white hover:scale-110 transition-all duration-200 flex items-center justify-center focus:outline-none shadow-md"
                 aria-label="نقص"
                 title="نقص"
               >
-                <Minus className="w-4 h-4" />
+                <Minus className="w-5 h-5" />
               </button>
               <div
-                className="px-4 py-1 text-center w-12 text-sm sm:text-base font-semibold bg-[#be9f4e] text-white rounded-full shadow-sm flex items-center justify-center"
+                className="px-5 py-2 text-center w-14 text-lg font-bold bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white rounded-full shadow-lg flex items-center justify-center"
                 aria-live="polite"
                 aria-atomic="true"
                 title={`عدد العروض: ${desiredCount}`}
@@ -596,100 +631,180 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={() => setDesiredCount((c) => Math.min(20, c + 1))}
-                className="p-2 rounded-full bg-white border border-neutral-200 text-[#be9f4e] hover:bg-[#be9f4e] hover:text-white transition-colors duration-150 flex items-center justify-center focus:outline-none  shadow-sm"
+                className="p-2 rounded-full bg-linear-to-br from-green-500 to-emerald-500 border-2 border-green-300 text-white hover:scale-110 transition-all duration-200 flex items-center justify-center focus:outline-none shadow-md"
                 aria-label="زيادة"
                 title="زيادة"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5" />
               </button>
             </div>
 
             <button
               onClick={handleOrderNow}
-              className="px-6 py-2 rounded-full bg-[#be9f4e] text-white hover:bg-[#a67f3e]"
+              className="px-8 py-3 rounded-full bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] text-white font-bold text-lg shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-300 flex items-center gap-2 border-2 border-amber-300"
             >
+              <ShoppingBag className="w-5 h-5 animate-bounce" />
               اطلب الآن
+              <Sparkles className="w-5 h-5" />
             </button>
           </div>
         </div>
       </div>
 
-      <footer className="w-full bg-neutral-100 mt-8">
-        <div className="mx-auto max-w-6xl px-6 py-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-start-1 md:col-span-2">
-            <h3 className="font-semibold text-base mb-2">فروعنا</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-neutral-700">
-              <div>
-                <div className="font-medium">مدينة طنطا</div>
-                <ul className="list-inside list-disc mt-1 space-y-1">
-                  <li>شارع نادي المعلمين بجانب بوابة نادي طنطا</li>
-                  <li>شارع سعيد تقاطع شارع محب</li>
-                  <li>شارع الأشرف مول أوت ليت</li>
-                </ul>
+      <footer className="w-full bg-linear-to-br from-amber-900 via-neutral-900 to-neutral-800 mt-20 text-white">
+        {/* Main Footer Content */}
+        <div className="mx-auto max-w-6xl px-6 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            {/* Brand Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoImg}
+                  alt="ASIA logo"
+                  className="w-12 h-12 object-cover rounded-full ring-2 ring-amber-400 ring-offset-2 ring-offset-neutral-900"
+                />
+                <div>
+                  <h3 className="text-2xl font-bold bg-linear-to-r from-amber-300 to-amber-500 bg-clip-text text-transparent">ASIA</h3>
+                  <p className="text-xs text-amber-300">عطور فاخرة منذ سنوات</p>
+                </div>
               </div>
-              <div>
-                <div className="font-medium">فرع إضافي</div>
-                <ul className="list-inside list-disc mt-1 space-y-1">
-                  <li>مدينة السادات — مول سيڤن ستارز ستور 110 الدور الأرضي</li>
-                  <li>محافظة الإسكندرية — سموحة شارع مصطفى كامل أمام أورنج</li>
-                  <li>
-                    محافظة السويس — الملاحة، برج العزيزية بجوار كافيه جواهر البن
-                  </li>
-                </ul>
+              <p className="text-sm text-neutral-300 leading-relaxed">
+                نقدم لك أرقى العطور الرجالية والنسائية بأفضل الأسعار. جودة عالية وخدمة متميزة.
+              </p>
+              <div className="flex items-center gap-2 pt-2">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" style={{ clipPath: 'inset(0 80% 0 0)' }} />
+                <span className="text-xs text-amber-300 mr-2">4.2 من 5</span>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-3 md:col-start-3 ">
-            <p dir="ltr" className="text-sm text-neutral-700 text-left">
-              For quick contact or order inquiries, reach us at:
-            </p>
-            <div
-              dir="ltr"
-              className="text-sm text-neutral-800 space-y-1 text-left"
-            >
-              <div>
-                Phone:{" "}
-                <a className="text-[#be9f4e]" href="tel:+201099949245">
-                  +20 10 99949245
-                </a>
+            {/* Locations Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-amber-300">
+                <MapPin className="w-5 h-5" />
+                فروعنا
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
+                  <div className="font-semibold text-amber-200 mb-1">مدينة طنطا</div>
+                  <ul className="space-y-1 text-neutral-300 text-xs">
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>شارع نادي المعلمين بجانب بوابة نادي طنطا</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>شارع سعيد تقاطع شارع محب</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>شارع الأشرف مول أوت ليت</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10">
+                  <div className="font-semibold text-amber-200 mb-1">فروع أخرى</div>
+                  <ul className="space-y-1 text-neutral-300 text-xs">
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>السادات — مول سيڤن ستارز</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>الإسكندرية — سموحة</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      <span>السويس — الملاحة</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-              <div>
-                WhatsApp:{" "}
-                <a
-                  className="text-[#be9f4e]"
+            </div>
+
+            {/* Contact Section */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-amber-300">
+                <MessageCircle className="w-5 h-5" />
+                تواصل معنا
+              </h3>
+              <div className="space-y-3">
+                <a 
+                  href="tel:+201099949245"
+                  className="flex items-center gap-3 text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-all hover:scale-105 border border-white/10 group"
+                >
+                  <div className="bg-amber-500 p-2 rounded-full group-hover:bg-amber-400 transition-colors">
+                    <Phone className="w-4 h-4 text-white" />
+                  </div>
+                  <div dir="ltr" className="text-left">
+                    <div className="text-xs text-neutral-400">Phone</div>
+                    <div className="text-amber-200 font-medium">+20 10 99949245</div>
+                  </div>
+                </a>
+
+                <a 
                   href="https://wa.me/201090988215"
                   target="_blank"
                   rel="noreferrer"
+                  className="flex items-center gap-3 text-sm bg-green-500/10 rounded-lg p-3 hover:bg-green-500/20 transition-all hover:scale-105 border border-green-500/30 group"
                 >
-                  +20 10 90988215
+                  <div className="bg-green-500 p-2 rounded-full group-hover:bg-green-400 transition-colors">
+                    <MessageCircle className="w-4 h-4 text-white" />
+                  </div>
+                  <div dir="ltr" className="text-left">
+                    <div className="text-xs text-neutral-400">WhatsApp</div>
+                    <div className="text-green-300 font-medium">+20 10 90988215</div>
+                  </div>
                 </a>
-              </div>
-              <div>
-                Email:{" "}
-                <a className="text-[#be9f4e]" href="mailto:asiaaegy@gmail.com">
-                  asiaaegy@gmail.com
+
+                <a 
+                  href="mailto:asiaaegy@gmail.com"
+                  className="flex items-center gap-3 text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-all hover:scale-105 border border-white/10 group"
+                >
+                  <div className="bg-blue-500 p-2 rounded-full group-hover:bg-blue-400 transition-colors">
+                    <Mail className="w-4 h-4 text-white" />
+                  </div>
+                  <div dir="ltr" className="text-left">
+                    <div className="text-xs text-neutral-400">Email</div>
+                    <div className="text-blue-300 font-medium text-xs">asiaaegy@gmail.com</div>
+                  </div>
                 </a>
-              </div>
-              <div>
-                Website:{" "}
-                <a
-                  className="text-[#be9f4e]"
+
+                <a 
                   href="https://asiaegy.com"
                   target="_blank"
                   rel="noreferrer"
+                  className="flex items-center gap-3 text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-all hover:scale-105 border border-white/10 group"
                 >
-                  asiaegy.com
+                  <div className="bg-purple-500 p-2 rounded-full group-hover:bg-purple-400 transition-colors">
+                    <Globe className="w-4 h-4 text-white" />
+                  </div>
+                  <div dir="ltr" className="text-left">
+                    <div className="text-xs text-neutral-400">Website</div>
+                    <div className="text-purple-300 font-medium">asiaegy.com</div>
+                  </div>
                 </a>
               </div>
             </div>
           </div>
         </div>
-        <div className="border-t border-neutral-200">
-          <div className="mx-auto max-w-6xl px-6 py-4 text-xs text-neutral-500 flex flex-col md:flex-row items-center justify-between">
-            <div>جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA</div>
-            <div className="mt-2 md:mt-0">
-              العنوان الرئيسي: 21 شارع نادي المعلمين، طنطا، مصر
+
+        {/* Bottom Bar */}
+        <div className="border-t border-white/10 bg-black/30">
+          <div className="mx-auto max-w-6xl px-6 py-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Heart className="w-4 h-4 text-red-400 fill-red-400" />
+                <span>جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA</span>
+              </div>
+              <div className="flex items-center gap-2 text-neutral-400">
+                <MapPin className="w-4 h-4 text-amber-400" />
+                <span className="text-xs">21 شارع نادي المعلمين، طنطا، مصر</span>
+              </div>
             </div>
           </div>
         </div>
