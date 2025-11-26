@@ -39,36 +39,41 @@ function buildItems(mapObj, category) {
           .pop()
           ?.replace(/\.[^.]+$/, "") ?? `${category}-${idx + 1}`;
 
-      // Parse "inspired by" information from filename
-      let displayName = nameFromFile;
-      const inspiredByMatch = nameFromFile.match(
-        /inspired?\s+[Bb]y\s+(.+?)\s+(\d+)$/i
-      );
+      // Extract the last 3-digit group from the filename as the product code.
+      // This handles filenames like "inspired by Boss 113" (code = 113).
+      // If no 3-digit group exists, fall back to the last 3 characters.
+      const codeMatch = nameFromFile.match(/(\d{3})(?!.*\d)/);
+      const code = codeMatch ? codeMatch[1] : nameFromFile.slice(-3);
 
-      if (inspiredByMatch) {
-        const brandName = inspiredByMatch[1].trim();
-        const version = inspiredByMatch[2];
-        displayName = `${brandName}`;
-      } else {
-        // For files without "inspired by" pattern (like women's numbered files)
-        displayName = nameFromFile;
-      }
+      // Derive an "inspired by" brand: remove trailing digits and common separators,
+      // then strip the phrase "inspired by" if present. Examples:
+      //  - "Boss 113" -> "Boss"
+      //  - "inspired by Boss 113" -> "Boss"
+      let brand = nameFromFile
+        .replace(/\d+$/g, "")
+        .replace(/[-_.]/g, " ")
+        .trim();
+      brand = brand.replace(/\binspired?\s+by\b/i, "").trim();
+      if (brand === "") brand = null;
 
       return {
         id: `${category}-${idx}-${nameFromFile}`,
-        name: displayName,
+        // expose both full filename and the 3-digit code
+        name: code,
+        code,
+        inspiredBy: brand,
         originalName: nameFromFile,
         category,
         image: url,
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name, "ar"));
+    .sort((a, b) => a.originalName.localeCompare(b.originalName, "ar"));
 }
 
 // Product Card: serve a low-res image by default and load full-res when selected
 const ProductCard = memo(
   ({ item, selected, disabled, onToggle }) => {
-    const lowResSrc = `${item.image}?width=120&quality=15`;
+    const lowResSrc = `${item.image}?width=240&quality=30`;
     const src = lowResSrc;
 
     return (
@@ -82,7 +87,7 @@ const ProductCard = memo(
           }
         }}
         disabled={disabled}
-        className={`relative flex flex-col items-center justify-center rounded-md py-2 px-2 text-xs font-semibold cursor-pointer focus:outline-none transition-none border ${
+        className={`relative w-full flex flex-row items-center gap-3 rounded-md py-3 px-3 text-sm font-semibold cursor-pointer focus:outline-none transition-none border ${
           selected
             ? "border-[#be9f4e] bg-linear-to-b from-white via-[#fffaf0] to-[#fdfaf4] text-neutral-900 shadow-md"
             : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
@@ -90,29 +95,32 @@ const ProductCard = memo(
         aria-pressed={selected}
       >
         <div
-          className={`w-12 h-12 sm:w-14 md:w-16 rounded-lg overflow-hidden mb-1 flex items-center justify-center bg-gray-100 ${
+          className={`flex-none w-20 h-20 sm:w-24 md:w-28 rounded-lg overflow-hidden flex items-center justify-center bg-gray-100 ${
             selected ? "ring-2 ring-[#be9f4e]" : ""
           }`}
         >
           <img
             src={src}
-            alt={item.name}
+            alt={item.code || item.originalName}
             role="img"
             className="w-full h-full object-cover pointer-events-none"
             loading="lazy"
             decoding="async"
-            // Keep priority normal for previews; do not force high priority
-            // when selected to avoid loading the large image on click.
             fetchPriority="auto"
-            // Only provide the small preview in srcSet so the browser won't
-            // request larger variants when the user selects the card.
-            srcSet={`${lowResSrc} 200w`}
-            sizes="(max-width: 800px) 100vw, 50vw"
+            srcSet={`${lowResSrc} 400w`}
+            sizes="(max-width: 800px) 100vw, 33vw"
           />
         </div>
 
-        <div className="text-[10px] text-center w-full leading-tight normal-case px-1">
-          <div className="truncate font-medium">{item.name}</div>
+        <div className="flex-1 leading-tight normal-case px-1 text-right">
+          <div className="font-light text-base sm:text-lg text-neutral-900">
+            {item.code || item.name}
+          </div>
+          {item.inspiredBy ? (
+            <div className="text-xs text-neutral-500 mt-1">
+              مستوحى من {item.inspiredBy}
+            </div>
+          ) : null}
         </div>
 
         {selected && (
@@ -309,8 +317,15 @@ export default function ProductPage() {
       allMen.find((i) => i.id === id) || allWomen.find((i) => i.id === id);
     const items = selectedIds.map((id) => {
       const it = findItem(id);
+      // Use the 3-digit code as the name stored in orders; fall back to originalName
       return it
-        ? { id: it.id, name: it.name, image: it.image, category: it.category }
+        ? {
+            id: it.id,
+            name: it.code || it.originalName || it.name,
+            code: it.code || null,
+            image: it.image,
+            category: it.category,
+          }
         : { id };
     });
 
@@ -563,7 +578,7 @@ export default function ProductPage() {
           ) : null}
 
           <div
-            className={`grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 ${
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 ${
               activeCategory === MEN ? "" : "hidden"
             }`}
           >
@@ -572,19 +587,20 @@ export default function ProductPage() {
               const disabled =
                 !selected && targetCount && totalSelected >= targetCount;
               return (
-                <ProductCard
-                  key={item.id}
-                  item={item}
-                  selected={selected}
-                  disabled={disabled}
-                  onToggle={toggleItem}
-                />
+                <div key={item.id} className="col-span-1">
+                  <ProductCard
+                    item={item}
+                    selected={selected}
+                    disabled={disabled}
+                    onToggle={toggleItem}
+                  />
+                </div>
               );
             })}
           </div>
 
           <div
-            className={`grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 ${
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 ${
               activeCategory === WOMEN ? "" : "hidden"
             }`}
           >
@@ -593,17 +609,17 @@ export default function ProductPage() {
               const disabled =
                 !selected && targetCount && totalSelected >= targetCount;
               return (
-                <ProductCard
-                  key={item.id}
-                  item={item}
-                  selected={selected}
-                  disabled={disabled}
-                  onToggle={toggleItem}
-                />
+                <div key={item.id} className="col-span-1">
+                  <ProductCard
+                    item={item}
+                    selected={selected}
+                    disabled={disabled}
+                    onToggle={toggleItem}
+                  />
+                </div>
               );
             })}
           </div>
-
           {/* Order form */}
           <form
             ref={formRef}
