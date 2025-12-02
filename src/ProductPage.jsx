@@ -447,7 +447,6 @@ export default function ProductPage() {
               muted
               playsInline
               autoPlay
-              controls
             />
           </div>
         </section>
