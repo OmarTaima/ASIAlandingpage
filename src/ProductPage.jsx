@@ -17,6 +17,7 @@ import {
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
+import { serverTimestamp } from "firebase/firestore";
 
 // Load images dynamically from assets using Vite's glob import
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
@@ -371,7 +372,7 @@ export default function ProductPage() {
         governorate: pendingOrder.province || null,
         userNote: pendingOrder.notes || "",
         status: "pending",
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
         price: pendingOrder.price || 0,
         deliveryFee: pendingOrder.delivery || 0,
         discount: "",
@@ -382,6 +383,7 @@ export default function ProductPage() {
         deliveredAt: "",
       };
 
+      console.log("Order payload:", payload);
       const id = await addOrder(payload);
       setShowModal(false);
       setPendingOrder(null);
