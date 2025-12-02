@@ -356,7 +356,33 @@ export default function ProductPage() {
 
     setIsSubmitting(true);
     try {
-      const id = await addOrder(pendingOrder);
+      // Build payload matching backend schema
+      const products = (pendingOrder.items || []).map((it) => ({
+        product: it.name || it.code || it.id,
+        quantity: 1,
+      }));
+
+      const payload = {
+        name: pendingOrder.customerName,
+        phone: pendingOrder.phone,
+        page: typeof window !== "undefined" ? window.location.href : "",
+        products,
+        address: pendingOrder.address || null,
+        governorate: pendingOrder.province || null,
+        userNote: pendingOrder.notes || "",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        price: pendingOrder.price || 0,
+        deliveryFee: pendingOrder.delivery || 0,
+        discount: "",
+        coupon: "",
+        total: pendingOrder.grandTotal || 0,
+        // send empty fields for admin side as requested
+        adminNote: "",
+        deliveredAt: "",
+      };
+
+      const id = await addOrder(payload);
       setShowModal(false);
       setPendingOrder(null);
       setErrorMessage("");

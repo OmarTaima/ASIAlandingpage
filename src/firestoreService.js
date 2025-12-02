@@ -49,7 +49,7 @@ export async function addOrder(orderData) {
   const col = collection(db, "orders");
   const docRef = await addDoc(col, {
     ...orderData,
-    createdAt: serverTimestamp(),
+    createdAt: orderData && orderData.createdAt ? orderData.createdAt : serverTimestamp(),
   });
   return docRef.id;
 }
