@@ -18,8 +18,8 @@ import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
 import { serverTimestamp } from "firebase/firestore";
+import Swal from "sweetalert2";
 
-// Load images dynamically from assets using Vite's glob import
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
   eager: true,
   query: "?url",
@@ -173,13 +173,16 @@ export default function ProductPage() {
 
   const price = useMemo(() => {
     const cnt = Number(desiredCount || 0);
-    if (offerSize === 4) return cnt * 800;
-    if (offerSize === 2) return cnt * 500;
-    return cnt * 250;
+    const unitPrices = { 1: 500, 2: 600, 4: 1000 };
+    const unit = unitPrices[offerSize] || 250;
+    return cnt * unit;
   }, [offerSize, desiredCount]);
 
   const delivery = deliveryMethod === "pickup" ? 0 : 40;
-  const grandTotal = price + (price > 0 ? delivery : 0);
+  const discountPerOffer = 15;
+  const discount = Number(desiredCount || 0) * discountPerOffer;
+  const discountedPrice = Math.max(0, price - discount);
+  const grandTotal = discountedPrice + (price > 0 ? delivery : 0);
 
   // Keep refs in sync
   useEffect(() => {
@@ -344,6 +347,8 @@ export default function ProductPage() {
       offerSize,
       desiredCount,
       price,
+      discount,
+      discountedPrice: price - discount,
       delivery,
       grandTotal,
       form,
@@ -388,7 +393,7 @@ export default function ProductPage() {
         price: pendingOrder.price || 0,
         deliveryFee: pendingOrder.delivery || 0,
         altPhone: pendingOrder.altPhone || null,
-        discount: "",
+        discount: pendingOrder.discount || 0,
         coupon: "",
         total: pendingOrder.grandTotal || 0,
         // send empty fields for admin side as requested
@@ -398,6 +403,16 @@ export default function ProductPage() {
 
       console.log("Order payload:", payload);
       const id = await addOrder(payload);
+      // show success toast using SweetAlert2
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: `تم إنشاء الطلب بنجاح (رقم: ${id})`,
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      });
       setShowModal(false);
       setPendingOrder(null);
       setErrorMessage("");
@@ -513,6 +528,27 @@ export default function ProductPage() {
             <div className="mt-2 w-full flex items-center justify-center gap-3">
               <button
                 type="button"
+                onClick={() => setOfferSize(1)}
+                className={
+                  "flex flex-col items-center px-4 py-3 rounded-xl text-sm text-center transition-all duration-300 transform hover:scale-105 " +
+                  (offerSize === 1
+                    ? "bg-linear-to-br from-[#be9f4e] to-[#8b7038] text-white shadow-lg ring-2 ring-amber-300 ring-offset-2"
+                    : "bg-white text-neutral-700 border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 shadow-md")
+                }
+                aria-pressed={offerSize === 1}
+              >
+                <span className="font-bold text-base">🎁 عرض 1</span>
+                <span
+                  className={
+                    "text-xs " +
+                    (offerSize === 1 ? "text-amber-100" : "text-neutral-500")
+                  }
+                >
+                  1 عطر — 500 جنيه
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setOfferSize(2)}
                 className={
                   "flex flex-col items-center px-4 py-3 rounded-xl text-sm text-center transition-all duration-300 transform hover:scale-105 " +
@@ -529,7 +565,7 @@ export default function ProductPage() {
                     (offerSize === 2 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  2 عطور — 500 جنيه
+                  2 عطور — 600 جنيه
                 </span>
               </button>
 
@@ -847,8 +883,8 @@ export default function ProductPage() {
               <div className="flex items-center justify-between">
                 <span>سعر العطور</span>
                 <span>
-                  {price !== undefined && price !== null
-                    ? `${price} جنيه`
+                  {discountedPrice !== undefined && discountedPrice !== null
+                    ? `${discountedPrice} جنيه`
                     : "—"}
                 </span>
               </div>
@@ -1078,9 +1114,17 @@ export default function ProductPage() {
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر العطور:</span>
                     <span className="font-semibold">
-                      {pendingOrder.price} جنيه
+                      {pendingOrder.discountedPrice ?? pendingOrder.price} جنيه
                     </span>
                   </div>
+                  {pendingOrder.discount ? (
+                    <div className="flex justify-between text-red-600">
+                      <span className="text-neutral-700">الخصم:</span>
+                      <span className="font-semibold">
+                        -{pendingOrder.discount} جنيه
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر التوصيل:</span>
                     <span className="font-semibold">
