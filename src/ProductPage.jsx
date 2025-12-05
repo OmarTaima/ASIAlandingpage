@@ -268,6 +268,7 @@ export default function ProductPage() {
     const formData = new FormData(form);
     const customerName = (formData.get("customerName") || "").trim();
     const phone = (formData.get("phone") || "").trim();
+    const altPhone = (formData.get("altPhone") || "").trim();
     const notes = (formData.get("notes") || "").trim();
 
     // Validate customer name
@@ -333,6 +334,7 @@ export default function ProductPage() {
     const order = {
       customerName,
       phone,
+      altPhone: altPhone || null,
       deliveryMethod,
       branch: deliveryMethod === "pickup" ? branch : null,
       province: deliveryMethod === "home" ? province : null,
@@ -385,6 +387,7 @@ export default function ProductPage() {
         createdAt: serverTimestamp(),
         price: pendingOrder.price || 0,
         deliveryFee: pendingOrder.delivery || 0,
+        altPhone: pendingOrder.altPhone || null,
         discount: "",
         coupon: "",
         total: pendingOrder.grandTotal || 0,
@@ -729,6 +732,22 @@ export default function ProductPage() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-sm text-neutral-700">
+                  رقم هاتف احتياطي (اختياري)
+                </label>
+                <input
+                  name="altPhone"
+                  type="tel"
+                  pattern="01[0125][0-9]{8}"
+                  minLength={11}
+                  maxLength={11}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                  placeholder="01XXXXXXXXX"
+                  title="رقم احتياطي (اختياري)"
+                />
+              </div>
+
               {/* Delivery fields overlay container - instant switching without flashing */}
               <div
                 className="sm:col-span-2 relative"
@@ -940,6 +959,16 @@ export default function ProductPage() {
                       {pendingOrder.phone}
                     </span>
                   </div>
+                  {pendingOrder.altPhone && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-semibold text-neutral-700 min-w-20">
+                        هاتف احتياطي:
+                      </span>
+                      <span className="text-neutral-900" dir="ltr">
+                        {pendingOrder.altPhone}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start gap-2">
                     <span className="font-semibold text-neutral-700 min-w-20">
                       طريقة الاستلام:
