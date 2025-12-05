@@ -18,7 +18,6 @@ import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
 import { serverTimestamp } from "firebase/firestore";
-import Swal from "sweetalert2";
 
 // Load images dynamically from assets using Vite's glob import
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
@@ -360,7 +359,7 @@ export default function ProductPage() {
     try {
       // Build payload matching backend schema
       const products = (pendingOrder.items || []).map((it) => ({
-        product: it.name || it.code || it.id,
+        product: it.originalName || it.name || it.code || it.id,
         quantity: 1,
       }));
 
@@ -399,17 +398,6 @@ export default function ProductPage() {
       setShowModal(false);
       setPendingOrder(null);
       setErrorMessage("");
-
-      // Show success message with a small toast
-      Swal.fire({
-        toast: true,
-        position: "top-end",
-        icon: "success",
-        title: `تم إنشاء الطلب بنجاح (رقم: ${id})`,
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-      });
 
       // clear selections and form
       setSelectedMen(new Set());
