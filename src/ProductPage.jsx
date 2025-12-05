@@ -18,6 +18,7 @@ import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./firestoreService";
 import { serverTimestamp } from "firebase/firestore";
+import Swal from "sweetalert2";
 
 // Load images dynamically from assets using Vite's glob import
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
@@ -368,8 +369,18 @@ export default function ProductPage() {
         phone: pendingOrder.phone,
         page: typeof window !== "undefined" ? window.location.href : "",
         products,
-        address: pendingOrder.address || null,
-        governorate: pendingOrder.province || null,
+        deliveryMethod: pendingOrder.deliveryMethod,
+        offerSize: pendingOrder.offerSize || null,
+        desiredCount: pendingOrder.desiredCount || null,
+        // If user chose pickup, send the selected branch as the address field
+        address:
+          pendingOrder.deliveryMethod === "pickup"
+            ? pendingOrder.branch || null
+            : pendingOrder.address || null,
+        governorate:
+          pendingOrder.deliveryMethod === "home"
+            ? pendingOrder.province || null
+            : null,
         userNote: pendingOrder.notes || "",
         status: "pending",
         createdAt: serverTimestamp(),
@@ -389,8 +400,16 @@ export default function ProductPage() {
       setPendingOrder(null);
       setErrorMessage("");
 
-      // Show success message
-      alert(`تم إنشاء الطلب بنجاح (رقم: ${id})`);
+      // Show success message with a small toast
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: `تم إنشاء الطلب بنجاح (رقم: ${id})`,
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+      });
 
       // clear selections and form
       setSelectedMen(new Set());
