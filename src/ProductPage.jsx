@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
-import { addOrder } from "./firestoreService";
-import { serverTimestamp } from "firebase/firestore";
+import { addOrder } from "./api";
 import Swal from "sweetalert2";
 
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
@@ -373,8 +372,7 @@ export default function ProductPage() {
       const payload = {
         name: pendingOrder.customerName,
         phone: pendingOrder.phone,
-        page: typeof window !== "undefined" ? window.location.href : "",
-        products,
+        items: products,
         deliveryMethod: pendingOrder.deliveryMethod,
         offerSize: pendingOrder.offerSize || null,
         desiredCount: pendingOrder.desiredCount || null,
@@ -383,25 +381,19 @@ export default function ProductPage() {
           pendingOrder.deliveryMethod === "pickup"
             ? pendingOrder.branch || null
             : pendingOrder.address || null,
-        governorate:
+        city:
           pendingOrder.deliveryMethod === "home"
             ? pendingOrder.province || null
             : null,
         userNote: pendingOrder.notes || "",
         status: "pending",
-        createdAt: serverTimestamp(),
-        price: pendingOrder.price || 0,
-        deliveryFee: pendingOrder.delivery || 0,
-        altPhone: pendingOrder.altPhone || null,
-        discount: pendingOrder.discount || 0,
-        coupon: "",
-        total: pendingOrder.grandTotal || 0,
+        shippingFee: pendingOrder.delivery || 0,
+        otherPhones: [pendingOrder.altPhone] || undefined,
+        totalDiscount: pendingOrder.discount || 0,
         // send empty fields for admin side as requested
-        adminNote: "",
         deliveredAt: "",
       };
 
-      console.log("Order payload:", payload);
       const id = await addOrder(payload);
       // show success toast using SweetAlert2
       Swal.fire({
