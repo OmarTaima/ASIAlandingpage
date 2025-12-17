@@ -749,6 +749,17 @@ export default function ProductPage() {
         delete payload.branch;
       }
 
+      // remove city when pickup or if empty (avoids server validation "city is not allowed to be empty")
+      if (pendingOrder.deliveryMethod === "pickup" && "city" in payload) {
+        delete payload.city;
+      }
+      if (
+        "city" in payload &&
+        (!payload.city || String(payload.city).trim() === "")
+      ) {
+        delete payload.city;
+      }
+
       // Submit to backend
       const result = await addOrder(payload);
 
