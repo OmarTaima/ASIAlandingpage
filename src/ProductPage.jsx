@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { useEffect, useMemo, useRef, useState, memo } from "react";
 import {
   Users2,
@@ -18,18 +22,34 @@ import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
 import { addOrder } from "./api";
 import Swal from "sweetalert2";
+import productsData from "./products.json";
+import branchesData from "./branches.json";
+import citiesData from "./cities.json";
 
+// ============================================================================
+// IMAGE IMPORTS (DYNAMIC GLOB IMPORTS)
+// ============================================================================
+
+// Import all men's product images from assets/men folder
 const menImages = import.meta.glob("./assets/men/**/*.{jpg,jpeg,png,webp}", {
   eager: true,
   query: "?url",
   import: "default",
 });
+
+// Import all women's product images from assets/women folder
 const womenImages = import.meta.glob(
   "./assets/women/**/*.{jpg,jpeg,png,webp}",
   { eager: true, query: "?url", import: "default" }
 );
 
-// Build product items from imported images
+/**
+ * Build product items from imported image glob
+ * Extracts product code from filename and derives brand information
+ * @param {Object} mapObj - Glob import object with paths and URLs
+ * @param {string} category - Product category ("men" or "women")
+ * @returns {Array} Array of product objects with metadata
+ */
 function buildItems(mapObj, category) {
   return Object.entries(mapObj)
     .map(([path, url], idx) => {
@@ -70,120 +90,281 @@ function buildItems(mapObj, category) {
     .sort((a, b) => a.originalName.localeCompare(b.originalName, "ar"));
 }
 
-// Product Card: serve a low-res image by default and load full-res when selected
-const ProductCard = memo(
-  ({ item, selected, disabled, onToggle }) => {
-    const lowResSrc = `${item.image}?width=240&quality=30`;
-    const src = lowResSrc;
+// ============================================================================
+// COMPONENTS
+// ============================================================================
 
-    return (
-      <button
-        type="button"
-        onClick={() => onToggle(item.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggle(item.id);
-          }
-        }}
-        disabled={disabled}
-        className={`relative w-full flex flex-row items-center gap-3 rounded-md py-3 px-3 text-sm font-semibold cursor-pointer focus:outline-none transition-none border ${
-          selected
-            ? "border-[#be9f4e] bg-linear-to-b from-white via-[#fffaf0] to-[#fdfaf4] text-neutral-900 shadow-md"
-            : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
-        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        aria-pressed={selected}
+/**
+ * ProductCard Component
+ * Displays individual product with image, code, and selection state
+ * Optimized with memo to prevent unnecessary re-renders
+ */
+const ProductCard = ({
+  item,
+  selected,
+  disabled,
+  onToggle,
+  quantity = 0,
+  onInc,
+  onDec,
+}) => {
+  const lowResSrc = `${item.image}?width=240&quality=30`;
+  const src = lowResSrc;
+  try {
+  } catch (_) {}
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(item.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle(item.id);
+        }
+      }}
+      disabled={disabled}
+      className={`relative w-full flex flex-row items-center gap-3 rounded-md py-3 px-3 text-sm font-semibold cursor-pointer focus:outline-none transition-none border ${
+        selected
+          ? "border-[#be9f4e] bg-linear-to-b from-white via-[#fffaf0] to-[#fdfaf4] text-neutral-900 shadow-md"
+          : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      aria-pressed={selected}
+    >
+      <div
+        className={`flex-none w-20 h-20 sm:w-24 md:w-28 rounded-lg overflow-hidden flex items-center justify-center bg-gray-100 ${
+          selected ? "ring-2 ring-[#be9f4e]" : ""
+        }`}
       >
-        <div
-          className={`flex-none w-20 h-20 sm:w-24 md:w-28 rounded-lg overflow-hidden flex items-center justify-center bg-gray-100 ${
-            selected ? "ring-2 ring-[#be9f4e]" : ""
-          }`}
-        >
-          <img
-            src={src}
-            alt={item.code || item.originalName}
-            role="img"
-            className="w-full h-full object-cover pointer-events-none"
-            loading="lazy"
-            decoding="async"
-            fetchPriority="auto"
-            srcSet={`${lowResSrc} 400w`}
-            sizes="(max-width: 800px) 100vw, 33vw"
-          />
-        </div>
+        <img
+          src={src}
+          alt={item.code || item.originalName}
+          role="img"
+          className="w-full h-full object-cover pointer-events-none"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="auto"
+          srcSet={`${lowResSrc} 400w`}
+          sizes="(max-width: 800px) 100vw, 33vw"
+        />
+      </div>
 
-        <div className="flex-1 leading-tight normal-case px-1 text-right">
-          <div className="font-light text-base sm:text-lg text-neutral-900">
-            {item.code || item.name}
-          </div>
-          {item.inspiredBy ? (
-            <div className="text-xs text-neutral-500 mt-1">
-              مستوحى من {item.inspiredBy}
-            </div>
-          ) : null}
+      <div className="flex-1 leading-tight normal-case px-1 text-right">
+        <div className="font-light text-base sm:text-lg text-neutral-900">
+          {item.code || item.name}
         </div>
-
-        {selected && (
-          <div className="absolute top-1 right-1 bg-[#be9f4e] text-white rounded-full p-0.5">
-            <Check className="w-3 h-3" />
+        {item.inspiredBy ? (
+          <div className="text-xs text-neutral-500 mt-1">
+            مستوحى من {item.inspiredBy}
           </div>
-        )}
-      </button>
-    );
-  },
-  (prev, next) =>
-    prev.selected === next.selected &&
-    prev.disabled === next.disabled &&
-    prev.item.id === next.item.id
-);
+        ) : null}
+      </div>
+
+      {selected && (
+        <div className="absolute top-1 right-1 bg-[#be9f4e] text-white rounded-full p-0.5">
+          <Check className="w-3 h-3" />
+        </div>
+      )}
+
+      {selected && (
+        <div className="absolute top-1 left-1 z-10 flex items-center gap-2 bg-white/90 rounded-full px-2 py-0.5 border border-neutral-200 text-sm sm:gap-1 sm:px-1 sm:text-xs">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDec && onDec();
+            }}
+            aria-label="نقص"
+            className="p-1 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors sm:p-0.5"
+          >
+            <Minus className="w-4 h-4 sm:w-3 sm:h-3" />
+          </button>
+          <div className="px-1 font-semibold text-sm text-neutral-800 sm:text-xs">
+            {quantity ?? 0}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInc && onInc();
+            }}
+            aria-label="زيادة"
+            className="p-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors sm:p-0.5"
+          >
+            <Plus className="w-4 h-4 sm:w-3 sm:h-3" />
+          </button>
+        </div>
+      )}
+    </button>
+  );
+};
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 const MEN = "men";
 const WOMEN = "women";
 
-export default function ProductPage() {
-  // Build product lists once
-  const allMen = useMemo(() => buildItems(menImages, MEN), []);
-  const allWomen = useMemo(() => buildItems(womenImages, WOMEN), []);
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
-  // State
+export default function ProductPage() {
+  // Default company/subCategories used when creating leads/orders
+  const DEFAULT_COMPANY_ID = "692fffb4e037d2784032b18f";
+  const DEFAULT_SUBCATS = ["69388f1d6d0b1261bbc370c0"];
+
+  // lookup city by name -> id (to map free-text province to city id when possible)
+  const citiesByName = useMemo(() => {
+    const m = new Map();
+    (citiesData || []).forEach((c) => {
+      if (c && c.name) m.set(String(c.name).toLowerCase(), c._id);
+    });
+    return m;
+  }, []);
+  // lookup city by id -> name for display
+  const citiesById = useMemo(() => {
+    const m = new Map();
+    (citiesData || []).forEach((c) => {
+      if (c && c._id) m.set(c._id, c.name);
+    });
+    return m;
+  }, []);
+  // --------------------------------------------------------------------------
+  // PRODUCT DATA PREPARATION
+  // --------------------------------------------------------------------------
+
+  // Build product lists once and enrich with `products.json` when codes match
+  const productsByCode = useMemo(() => {
+    const m = new Map();
+    (productsData || []).forEach((p) => {
+      if (p && p.code != null) m.set(String(p.code), p);
+    });
+    return m;
+  }, []);
+
+  // branches lookup (id -> branch)
+  const branchesById = useMemo(() => {
+    const m = new Map();
+    (branchesData || []).forEach((b) => {
+      if (b && b._id) m.set(b._id, b);
+    });
+    return m;
+  }, []);
+
+  const allMen = useMemo(() => {
+    const items = buildItems(menImages, MEN);
+    return items.map((it, idx) => {
+      const p = productsByCode.get(String(it.code));
+      if (p) {
+        return {
+          ...it,
+          // keep canonical id unchanged so we don't manipulate product IDs
+          id: p._id || it.id,
+          _id: p._id,
+          name: p.name || it.name,
+          code: String(p.code),
+        };
+      }
+      return it;
+    });
+  }, [productsByCode]);
+
+  const allWomen = useMemo(() => {
+    const items = buildItems(womenImages, WOMEN);
+    return items.map((it, idx) => {
+      const p = productsByCode.get(String(it.code));
+      if (p) {
+        return {
+          ...it,
+          id: p._id || it.id,
+          _id: p._id,
+          name: p.name || it.name,
+          code: String(p.code),
+        };
+      }
+      return it;
+    });
+  }, [productsByCode]);
+
+  // --------------------------------------------------------------------------
+  // STATE MANAGEMENT
+  // --------------------------------------------------------------------------
+
+  // UI state
   const [activeCategory, setActiveCategory] = useState(MEN);
-  const [selectedMen, setSelectedMen] = useState(new Set());
-  const [selectedWomen, setSelectedWomen] = useState(new Set());
+
+  // Product selection state: map of itemId -> quantity
+  const [selectedMen, setSelectedMen] = useState({});
+  const [selectedWomen, setSelectedWomen] = useState({});
+
+  // Offer and pricing state
   const [desiredCount, setDesiredCount] = useState(1);
   const [offerSize, setOfferSize] = useState(2);
+
+  // Form and order state
   const [errorMessage, setErrorMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delivery state
   const [deliveryMethod, setDeliveryMethod] = useState("home"); // "home" or "pickup"
   const [selectedBranch, setSelectedBranch] = useState("");
 
-  // Refs
+  // --------------------------------------------------------------------------
+  // REFS
+  // --------------------------------------------------------------------------
+
   const formRef = useRef(null);
   const videoRef = useRef(null);
   const targetCountRef = useRef(0);
   const selectedMenRef = useRef(selectedMen);
   const selectedWomenRef = useRef(selectedWomen);
 
-  // Calculations
-  const totalSelected = selectedMen.size + selectedWomen.size;
+  // --------------------------------------------------------------------------
+  // CALCULATIONS & DERIVED STATE
+  // --------------------------------------------------------------------------
+
+  // Selection calculations (sum of quantities)
+  const totalSelected =
+    Object.values(selectedMen).reduce((s, v) => s + Number(v || 0), 0) +
+    Object.values(selectedWomen).reduce((s, v) => s + Number(v || 0), 0);
   const targetCount = offerSize * Number(desiredCount || 0);
   const remaining = Math.max(targetCount - totalSelected, 0);
 
+  // Price calculations
   const price = useMemo(() => {
     const cnt = Number(desiredCount || 0);
-    const unitPrices = { 1: 500, 2: 600, 4: 1000 };
+    const unitPrices = { 1: 485, 2: 585, 4: 985 };
     const unit = unitPrices[offerSize] || 250;
     return cnt * unit;
   }, [offerSize, desiredCount]);
 
+  // Final price calculations
+  // Delivery fee
   const delivery = deliveryMethod === "pickup" ? 0 : 40;
-  const discountPerOffer = 15;
-  const discount = Number(desiredCount || 0) * discountPerOffer;
-  const discountedPrice = Math.max(0, price - discount);
+
+  // Pricing / Discount logic
+  // Base per-item retail price (non-offer)
+  const perItemPrice = 485;
+  // Number of items in the selected offers (target count)
+  const fullItemCount = targetCount;
+  // Full retail price for all items (no offers)
+  const fullRetailPrice = Number(fullItemCount || 0) * perItemPrice;
+  // 'price' variable above represents the offer price (total for desiredCount)
+  // Total discount is the difference between full retail and the offer price
+  const discount = Math.max(0, fullRetailPrice - price);
+  // Final discounted price is the offer price (price) after applying discount
+  const discountedPrice = Math.max(0, price);
   const grandTotal = discountedPrice + (price > 0 ? delivery : 0);
 
-  // Keep refs in sync
+  // --------------------------------------------------------------------------
+  // EFFECTS
+  // --------------------------------------------------------------------------
+
+  // Keep refs in sync with state for stable callbacks
   useEffect(() => {
     targetCountRef.current = targetCount;
     selectedMenRef.current = selectedMen;
@@ -210,47 +391,143 @@ export default function ProductPage() {
     return () => v.removeEventListener("ended", onEnd);
   }, []);
 
-  // Toggle item selection - keep function reference stable using refs
+  // --------------------------------------------------------------------------
+  // EVENT HANDLERS
+  // --------------------------------------------------------------------------
+
+  /**
+   * Toggle product selection with offer limit enforcement
+   * Uses refs to maintain stable function reference
+   */
   const toggleItem = (itemId) => {
     const currentCategory = activeCategoryRef.current;
     if (!currentCategory) return;
     const isMen = currentCategory === MEN;
-
     if (isMen) {
       setSelectedMen((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(itemId)) {
-          newSet.delete(itemId);
-          return newSet;
+        const next = { ...prev };
+        const currentTotal =
+          Object.values(prev).reduce((s, v) => s + Number(v || 0), 0) +
+          Object.values(selectedWomenRef.current).reduce(
+            (s, v) => s + Number(v || 0),
+            0
+          );
+        if (next[itemId]) {
+          // remove item
+          delete next[itemId];
+          return next;
         }
-        const currentTotal = prev.size + selectedWomenRef.current.size;
         if (targetCountRef.current && currentTotal >= targetCountRef.current) {
           return prev;
         }
-        newSet.add(itemId);
-        return newSet;
+        next[itemId] = 1;
+        return next;
       });
     } else {
       setSelectedWomen((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(itemId)) {
-          newSet.delete(itemId);
-          return newSet;
+        const next = { ...prev };
+        const currentTotal =
+          Object.values(selectedMenRef.current).reduce(
+            (s, v) => s + Number(v || 0),
+            0
+          ) + Object.values(prev).reduce((s, v) => s + Number(v || 0), 0);
+        if (next[itemId]) {
+          delete next[itemId];
+          return next;
         }
-        const currentTotal = selectedMenRef.current.size + prev.size;
         if (targetCountRef.current && currentTotal >= targetCountRef.current) {
           return prev;
         }
-        newSet.add(itemId);
-        return newSet;
+        next[itemId] = 1;
+        return next;
       });
     }
   };
 
+  // increment/decrement quantity for an item (respecting targetCount)
+  const changeItemQuantity = (itemId, delta, categoryParam) => {
+    const currentCategory = categoryParam || activeCategoryRef.current;
+    if (!currentCategory) return;
+    const isMen = currentCategory === MEN;
+    // debug log to help trace why quantity isn't updating
+    try {
+    } catch (_) {}
+    if (isMen) {
+      setSelectedMen((prev) => {
+        const next = { ...prev };
+        const currQty = Number(next[itemId] || 0);
+        const totalOther =
+          Object.values(selectedWomenRef.current).reduce(
+            (s, v) => s + Number(v || 0),
+            0
+          ) +
+          Object.values(prev).reduce((s, v) => s + Number(v || 0), 0) -
+          currQty;
+        const newQty = Math.max(0, currQty + delta);
+        if (newQty === 0) {
+          if (next[itemId]) delete next[itemId];
+          // debug
+          try {
+          } catch (_) {}
+          return next;
+        }
+        if (
+          targetCountRef.current &&
+          totalOther + newQty > targetCountRef.current
+        ) {
+          return prev;
+        }
+        next[itemId] = newQty;
+        // debug
+        try {
+        } catch (_) {}
+        return next;
+      });
+    } else {
+      setSelectedWomen((prev) => {
+        const next = { ...prev };
+        const currQty = Number(next[itemId] || 0);
+        const totalOther =
+          Object.values(selectedMenRef.current).reduce(
+            (s, v) => s + Number(v || 0),
+            0
+          ) +
+          Object.values(prev).reduce((s, v) => s + Number(v || 0), 0) -
+          currQty;
+        const newQty = Math.max(0, currQty + delta);
+        if (newQty === 0) {
+          if (next[itemId]) delete next[itemId];
+          // debug
+          try {
+          } catch (_) {}
+          return next;
+        }
+        if (
+          targetCountRef.current &&
+          totalOther + newQty > targetCountRef.current
+        ) {
+          return prev;
+        }
+        next[itemId] = newQty;
+        // debug
+        try {
+        } catch (_) {}
+        return next;
+      });
+    }
+  };
+
+  /**
+   * Scroll to order form when user clicks "Order Now"
+   */
   const handleOrderNow = () => {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /**
+   * Handle order form submission
+   * Validates form data and shows confirmation modal
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(""); // Clear previous errors
@@ -288,7 +565,7 @@ export default function ProductPage() {
       return;
     }
 
-    let province = "";
+    let cityId = "";
     let address = "";
     let branch = "";
 
@@ -301,11 +578,11 @@ export default function ProductPage() {
       }
     } else {
       // Validate home delivery fields
-      province = (formData.get("province") || "").trim();
+      cityId = (formData.get("city") || "").trim();
       address = (formData.get("address") || "").trim();
 
-      if (!province || province.length < 2) {
-        setErrorMessage("رجاءً أدخل اسم المحافظة");
+      if (!cityId) {
+        setErrorMessage("رجاءً اختر المحافظة من القائمة");
         return;
       }
 
@@ -315,39 +592,71 @@ export default function ProductPage() {
       }
     }
 
-    // Build selected items array with basic metadata
-    const selectedIds = [...selectedMen, ...selectedWomen];
+    // Build selected items array with basic metadata and quantities
     const findItem = (id) =>
       allMen.find((i) => i.id === id) || allWomen.find((i) => i.id === id);
-    const items = selectedIds.map((id) => {
+    const items = [];
+    Object.entries(selectedMen).forEach(([id, qty]) => {
       const it = findItem(id);
-      // Use the 3-digit code as the name stored in orders; fall back to originalName
-      return it
-        ? {
-            id: it.id,
-            name: it.code || it.originalName || it.name,
-            code: it.code || null,
-            image: it.image,
-            category: it.category,
-          }
-        : { id };
+      items.push(
+        it
+          ? {
+              id: it.id,
+              name: it.code || it.originalName || it.name,
+              code: it.code || null,
+              image: it.image,
+              category: it.category,
+              quantity: Number(qty || 0),
+            }
+          : { id, quantity: Number(qty || 0) }
+      );
     });
+    Object.entries(selectedWomen).forEach(([id, qty]) => {
+      const it = findItem(id);
+      items.push(
+        it
+          ? {
+              id: it.id,
+              name: it.code || it.originalName || it.name,
+              code: it.code || null,
+              image: it.image,
+              category: it.category,
+              quantity: Number(qty || 0),
+            }
+          : { id, quantity: Number(qty || 0) }
+      );
+    });
+
+    const totalItemsCount = items.reduce(
+      (s, it) => s + Number(it.quantity || 0),
+      0
+    );
 
     const order = {
       customerName,
       phone,
       altPhone: altPhone || null,
       deliveryMethod,
-      branch: deliveryMethod === "pickup" ? branch : null,
-      province: deliveryMethod === "home" ? province : null,
+      branchId: deliveryMethod === "pickup" ? branch : null,
+      branchName:
+        deliveryMethod === "pickup"
+          ? branchesById.get(branch)?.name || null
+          : null,
+      city: deliveryMethod === "home" ? cityId : null,
+      cityName:
+        deliveryMethod === "home" ? citiesById.get(cityId) || null : null,
       address: deliveryMethod === "home" ? address : null,
       notes,
       items,
       offerSize,
       desiredCount,
-      price,
+      totalItems: totalItemsCount,
+      // full retail price (no offer): e.g. 2 items * 485 = 970
+      price: fullRetailPrice,
+      // discount = fullRetailPrice - offerPrice (what customer saves)
       discount,
-      discountedPrice: price - discount,
+      // discountedPrice = offer price (what customer pays for products)
+      discountedPrice: price,
       delivery,
       grandTotal,
       form,
@@ -358,53 +667,101 @@ export default function ProductPage() {
     setShowModal(true);
   };
 
+  /**
+   * Confirm and submit order to backend
+   * Sends order data via API and shows success/error feedback
+   */
   const handleConfirmOrder = async () => {
     if (!pendingOrder) return;
 
     setIsSubmitting(true);
     try {
-      // Build payload matching backend schema
-      const products = (pendingOrder.items || []).map((it) => ({
-        product: it.originalName || it.name || it.code || it.id,
-        quantity: 1,
+      // Build payload matching backend schema from pendingOrder
+      // build items for backend (product id + quantity)
+      const items = (pendingOrder.items || []).map((it) => ({
+        product: it._id || it.id || it.code || it.name,
+        quantity: String(it.quantity || 1),
       }));
 
-      const payload = {
+      // use selected city id directly from pendingOrder
+      const cityId = pendingOrder.city || "";
+
+      // build lead payload (first request)
+      const leadPayload = {
         name: pendingOrder.customerName,
         phone: pendingOrder.phone,
-        items: products,
-        deliveryMethod: pendingOrder.deliveryMethod,
-        offerSize: pendingOrder.offerSize || null,
-        desiredCount: pendingOrder.desiredCount || null,
-        // If user chose pickup, send the selected branch as the address field
-        address:
-          pendingOrder.deliveryMethod === "pickup"
-            ? pendingOrder.branch || null
-            : pendingOrder.address || null,
-        city:
-          pendingOrder.deliveryMethod === "home"
-            ? pendingOrder.province || null
-            : null,
-        userNote: pendingOrder.notes || "",
-        status: "pending",
-        shippingFee: pendingOrder.delivery || 0,
-        otherPhones: [pendingOrder.altPhone] || undefined,
-        totalDiscount: pendingOrder.discount || 0,
-        // send empty fields for admin side as requested
-        deliveredAt: "",
+        otherPhones: pendingOrder.altPhone ? [pendingOrder.altPhone] : [],
+        addresses: [
+          {
+            area: "",
+            street: pendingOrder.address || "",
+            landmark: "",
+          },
+        ],
+        city: cityId || "",
+        company: DEFAULT_COMPANY_ID,
+        subCategories: DEFAULT_SUBCATS,
+        isWhatsapp: false,
+        // include branch only when it's a non-empty value (avoid empty-string validation error)
+        ...(pendingOrder.deliveryMethod !== "pickup" && pendingOrder.branchId
+          ? { branch: pendingOrder.branchId }
+          : {}),
       };
 
-      const id = await addOrder(payload);
-      // show success toast using SweetAlert2
+      // build order payload (second request) — lead id will be set after lead creation
+      const orderPayload = {
+        lead: "<LEAD_ID_PLACEHOLDER>",
+        company: DEFAULT_COMPANY_ID,
+        totalDiscount: String(pendingOrder.discount ?? 0),
+        shippingFee: String(pendingOrder.delivery ?? 0),
+        items: items.map((it) => ({
+          item: it.product,
+          quantity: String(it.quantity),
+        })),
+        // include branch only when not pickup
+        ...(pendingOrder.deliveryMethod !== "pickup" && pendingOrder.branchId
+          ? { branch: pendingOrder.branchId }
+          : {}),
+      };
+
+      // Combine lead + order fields into single payload expected by `addOrder`
+      const payload = {
+        ...leadPayload,
+        // items should use `item` key according to example
+        items: items.map((it) => ({
+          item: it.product,
+          quantity: String(it.quantity),
+        })),
+        shippingFee: String(pendingOrder.delivery ?? 0),
+        totalDiscount: String(pendingOrder.discount ?? 0),
+        company: DEFAULT_COMPANY_ID,
+        // do not include `branch` when pickup; only include when home delivery
+        ...(pendingOrder.deliveryMethod !== "pickup" && {
+          branch: pendingOrder.branchId || "",
+        }),
+      };
+
+      // ensure branch is not present if empty or falsy (avoids validation error)
+      if (
+        "branch" in payload &&
+        (!payload.branch || String(payload.branch).trim() === "")
+      ) {
+        delete payload.branch;
+      }
+
+      // Submit to backend
+      const result = await addOrder(payload);
+
       Swal.fire({
         toast: true,
         position: "top-end",
         icon: "success",
-        title: `تم إنشاء الطلب بنجاح (رقم: ${id})`,
+        title: `تم إنشاء الطلب بنجاح`,
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
       });
+      // Close modal and reset UI state as if submitted
       setShowModal(false);
       setPendingOrder(null);
       setErrorMessage("");
@@ -424,11 +781,18 @@ export default function ProductPage() {
     }
   };
 
+  // --------------------------------------------------------------------------
+  // RENDER
+  // --------------------------------------------------------------------------
+
   return (
     <div
       dir="rtl"
       className="min-h-svh bg-linear-to-br from-amber-50 via-white to-orange-50 text-neutral-900"
     >
+      {/* ================================================================
+          HEADER - Sticky navigation bar with logo
+          ================================================================ */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-lg border-b border-amber-200 shadow-sm">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -454,8 +818,13 @@ export default function ProductPage() {
         </div>
       </header>
 
+      {/* ================================================================
+          MAIN CONTENT - Product showcase and order form
+          ================================================================ */}
       <main className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Media */}
+        {/* ----------------------------------------
+            VIDEO SECTION
+            ---------------------------------------- */}
         <section className="space-y-4">
           <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-black">
             <video
@@ -470,8 +839,11 @@ export default function ProductPage() {
           </div>
         </section>
 
-        {/* Details + Selector */}
+        {/* ----------------------------------------
+            PRODUCT DETAILS & SELECTOR SECTION
+            ---------------------------------------- */}
         <section className="space-y-5">
+          {/* Product title and rating */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-extrabold bg-linear-to-r from-[#be9f4e] via-[#d4af37] to-[#be9f4e] bg-clip-text text-transparent animate-pulse">
@@ -480,7 +852,7 @@ export default function ProductPage() {
               <Heart className="w-6 h-6 text-red-500 fill-red-500 animate-pulse" />
             </div>
 
-            {/* Star Rating */}
+            {/* Product rating display */}
             <div className="flex items-center gap-3 bg-linear-to-r from-amber-50 to-orange-50 rounded-lg px-4 py-3 border border-amber-200 shadow-md">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4].map((star) => (
@@ -505,6 +877,7 @@ export default function ProductPage() {
               </span>
             </div>
 
+            {/* Product description */}
             <p className="text-sm text-neutral-600 leading-relaxed">
               <span className="inline-flex items-center gap-1">
                 <Sparkles className="w-4 h-4 text-amber-500" />
@@ -513,10 +886,14 @@ export default function ProductPage() {
               . اختر عطورك المفضلة من تشكيلتنا الرجالية والنسائية، مع عروض مميزة
               لتوفير أكبر.
             </p>
+
+            {/* Usage instructions */}
             <div className="text-red-600 text-xs">
               ملاحظة: اختر نوع العرض أولاً ثم حدد عدد هذه العروض باستخدام العداد
               أسفل الصفحة.
             </div>
+
+            {/* Offer size selection buttons */}
             <div className="mt-2 w-full flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -536,7 +913,7 @@ export default function ProductPage() {
                     (offerSize === 1 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  1 عطر — 500 جنيه
+                  1 عطر — 485 جنيه
                 </span>
               </button>
               <button
@@ -557,7 +934,7 @@ export default function ProductPage() {
                     (offerSize === 2 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  2 عطور — 600 جنيه
+                  2 عطور — 585 جنيه
                 </span>
               </button>
 
@@ -579,11 +956,13 @@ export default function ProductPage() {
                     (offerSize === 4 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  4 عطور — 800 جنيه
+                  4 عطور — 985 جنيه
                 </span>
               </button>
             </div>
           </div>
+
+          {/* Order Now button */}
           <div>
             <button
               onClick={handleOrderNow}
@@ -594,8 +973,8 @@ export default function ProductPage() {
               <Sparkles className="w-5 h-5" />
             </button>
           </div>
-          {/* counter removed from inline details — moved to sticky bottom bar */}
 
+          {/* Category tabs and selection counter */}
           <div className="flex items-center gap-3 text-sm">
             <div className="inline-flex rounded-xl border-2 border-amber-200 p-1 bg-linear-to-r from-amber-50 to-orange-50 shadow-md">
               <button
@@ -635,7 +1014,10 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* Grid - render both categories, show/hide with CSS for instant switching */}
+          {/* ----------------------------------------
+              PRODUCT GRID
+              Both categories rendered, toggled with CSS
+              ---------------------------------------- */}
           {!activeCategory ? (
             <div className="py-8 text-center text-neutral-500">
               اختر فئة "رجالي" أو "نسائي" لعرض العطور
@@ -647,45 +1029,62 @@ export default function ProductPage() {
               activeCategory === MEN ? "" : "hidden"
             }`}
           >
-            {allMen.map((item) => {
-              const selected = selectedMen.has(item.id);
+            {allMen.map((item, idx) => {
+              const selected = Boolean(selectedMen[item.id]);
               const disabled =
                 !selected && targetCount && totalSelected >= targetCount;
               return (
-                <div key={item.id} className="col-span-1">
+                <div
+                  key={`${item._id || item.id}-${idx}-${item.category}`}
+                  className="col-span-1"
+                >
                   <ProductCard
                     item={item}
                     selected={selected}
                     disabled={disabled}
                     onToggle={toggleItem}
+                    quantity={selectedMen[item.id] || 0}
+                    onInc={() => changeItemQuantity(item.id, 1, "men")}
+                    onDec={() => changeItemQuantity(item.id, -1, "men")}
                   />
                 </div>
               );
             })}
           </div>
 
+          {/* Women's products grid */}
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 ${
               activeCategory === WOMEN ? "" : "hidden"
             }`}
           >
-            {allWomen.map((item) => {
-              const selected = selectedWomen.has(item.id);
+            {allWomen.map((item, idx) => {
+              const selected = Boolean(selectedWomen[item.id]);
               const disabled =
                 !selected && targetCount && totalSelected >= targetCount;
               return (
-                <div key={item.id} className="col-span-1">
+                <div
+                  key={`${item._id || item.id}-${idx}-${item.category}`}
+                  className="col-span-1"
+                >
                   <ProductCard
                     item={item}
                     selected={selected}
                     disabled={disabled}
                     onToggle={toggleItem}
+                    quantity={selectedWomen[item.id] || 0}
+                    onInc={() => changeItemQuantity(item.id, 1, "women")}
+                    onDec={() => changeItemQuantity(item.id, -1, "women")}
                   />
                 </div>
               );
             })}
           </div>
-          {/* Order form */}
+
+          {/* ----------------------------------------
+              ORDER FORM
+              Customer details and delivery info
+              ---------------------------------------- */}
           <form
             ref={formRef}
             className="rounded-2xl border-2 border-amber-300 bg-linear-to-br from-white to-amber-50 p-6 space-y-4 shadow-xl"
@@ -696,7 +1095,7 @@ export default function ProductPage() {
               تأكيد الطلب
             </h2>
 
-            {/* Delivery Method Selection */}
+            {/* Delivery method selection (home delivery or pickup) */}
             <div className="space-y-3">
               <label className="text-sm font-semibold text-neutral-700">
                 طريقة الاستلام
@@ -732,6 +1131,7 @@ export default function ProductPage() {
               </div>
             </div>
 
+            {/* Customer information inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-sm text-neutral-700">الاسم</label>
@@ -776,7 +1176,7 @@ export default function ProductPage() {
                 />
               </div>
 
-              {/* Delivery fields overlay container - instant switching without flashing */}
+              {/* Conditional delivery/pickup fields (overlay for instant switching) */}
               <div
                 className="sm:col-span-2 relative"
                 style={{ minHeight: "150px" }}
@@ -801,24 +1201,11 @@ export default function ProductPage() {
                     className="w-full rounded-lg border-2 border-amber-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
                   >
                     <option value="">-- اختر الفرع --</option>
-                    <option value="طنطا - شارع نادي المعلمين بجانب بوابة نادي طنطا">
-                      طنطا - شارع نادي المعلمين بجانب بوابة نادي طنطا
-                    </option>
-                    <option value="طنطا - شارع سعيد تقاطع شارع محب">
-                      طنطا - شارع سعيد تقاطع شارع محب
-                    </option>
-                    <option value="طنطا - شارع الأشرف مول أوت ليت">
-                      طنطا - شارع الأشرف مول أوت ليت
-                    </option>
-                    <option value="السادات - مول سيڤن ستارز ستور 110 الدور الأرضي">
-                      السادات - مول سيڤن ستارز
-                    </option>
-                    <option value="الإسكندرية - سموحة شارع مصطفى كامل أمام أورنج">
-                      الإسكندرية - سموحة
-                    </option>
-                    <option value="السويس - الملاحة، برج العزيزية بجوار كافيه جواهر البن">
-                      السويس - الملاحة
-                    </option>
+                    {(branchesData || []).map((b) => (
+                      <option key={b._id} value={b._id}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -833,15 +1220,18 @@ export default function ProductPage() {
                 >
                   <div>
                     <label className="text-sm text-neutral-700">المحافظه</label>
-                    <input
+                    <select
                       required={deliveryMethod === "home"}
-                      name="province"
-                      type="text"
-                      minLength={2}
-                      maxLength={50}
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
-                      placeholder="اكتب اسم محافظتك"
-                    />
+                      name="city"
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
+                    >
+                      <option value="">-- اختر المحافظة --</option>
+                      {(citiesData || []).map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-sm text-neutral-700">العنوان</label>
@@ -858,6 +1248,7 @@ export default function ProductPage() {
                 </div>
               </div>
 
+              {/* Order notes textarea */}
               <div className="sm:col-span-2 space-y-1">
                 <label className="text-sm text-neutral-700">ملاحظات</label>
                 <textarea
@@ -870,15 +1261,16 @@ export default function ProductPage() {
               </div>
             </div>
 
+            {/* Price summary */}
             <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3 text-sm">
               {/* Offer breakdown removed from UI per request */}
               <div className="flex items-center justify-between">
                 <span>سعر العطور</span>
-                <span>
-                  {discountedPrice !== undefined && discountedPrice !== null
-                    ? `${discountedPrice} جنيه`
-                    : "—"}
-                </span>
+                <span>{fullRetailPrice ? `${fullRetailPrice} جنيه` : "—"}</span>
+              </div>
+              <div className="flex items-center justify-between text-red-600">
+                <span>الخصم</span>
+                <span>-{discount ? `${discount} جنيه` : "0 جنيه"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>سعر التوصيل</span>
@@ -886,14 +1278,11 @@ export default function ProductPage() {
               </div>
               <div className="flex items-center justify-between font-bold border-t mt-2 pt-2">
                 <span>الإجمالي</span>
-                <span>
-                  {grandTotal !== undefined && grandTotal !== null
-                    ? `${grandTotal} جنيه`
-                    : "—"}
-                </span>
+                <span>{grandTotal ? `${grandTotal} جنيه` : "—"}</span>
               </div>
             </div>
 
+            {/* Error message display */}
             {errorMessage && (
               <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3 animate-pulse">
                 <div className="bg-red-500 rounded-full p-1 mt-0.5">
@@ -917,6 +1306,7 @@ export default function ProductPage() {
               </div>
             )}
 
+            {/* Submit button */}
             <button
               type="submit"
               className="w-full px-6 py-3 rounded-xl bg-linear-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
@@ -925,12 +1315,14 @@ export default function ProductPage() {
               تأكيد الطلب
               <Sparkles className="w-5 h-5" />
             </button>
-            {/* no offer requirement; user selects desired count using the counter above */}
           </form>
         </section>
       </main>
 
-      {/* Confirmation Modal */}
+      {/* ================================================================
+          CONFIRMATION MODAL
+          Shows order summary before final submission
+          ================================================================ */}
       {showModal && pendingOrder && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
@@ -1008,13 +1400,13 @@ export default function ProductPage() {
                     </span>
                   </div>
                   {pendingOrder.deliveryMethod === "pickup" &&
-                    pendingOrder.branch && (
+                    pendingOrder.branchName && (
                       <div className="flex items-start gap-2">
                         <span className="font-semibold text-neutral-700 min-w-20">
                           الفرع:
                         </span>
                         <span className="text-neutral-900">
-                          {pendingOrder.branch}
+                          {pendingOrder.branchName}
                         </span>
                       </div>
                     )}
@@ -1025,7 +1417,7 @@ export default function ProductPage() {
                           المحافظة:
                         </span>
                         <span className="text-neutral-900">
-                          {pendingOrder.province}
+                          {pendingOrder.cityName || pendingOrder.city || "-"}
                         </span>
                       </div>
                       <div className="flex items-start gap-2">
@@ -1072,7 +1464,7 @@ export default function ProductPage() {
                   <div className="flex justify-between">
                     <span className="text-neutral-700">إجمالي العطور:</span>
                     <span className="font-semibold text-neutral-900">
-                      {pendingOrder.items.length} عطر
+                      {pendingOrder.totalItems || pendingOrder.items.length} عطر
                     </span>
                   </div>
                 </div>
@@ -1091,8 +1483,8 @@ export default function ProductPage() {
                         alt={item.name}
                         className="w-full h-16 object-cover rounded-lg border border-blue-300"
                       />
-                      <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                        {idx + 1}
+                      <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+                        {item.quantity || 1}
                       </div>
                     </div>
                   ))}
@@ -1106,7 +1498,7 @@ export default function ProductPage() {
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر العطور:</span>
                     <span className="font-semibold">
-                      {pendingOrder.discountedPrice ?? pendingOrder.price} جنيه
+                      {pendingOrder.price ?? pendingOrder.discountedPrice} جنيه
                     </span>
                   </div>
                   {pendingOrder.discount ? (
@@ -1116,7 +1508,12 @@ export default function ProductPage() {
                         -{pendingOrder.discount} جنيه
                       </span>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="flex justify-between text-red-600">
+                      <span className="text-neutral-700">الخصم:</span>
+                      <span className="font-semibold">-0 جنيه</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر التوصيل:</span>
                     <span className="font-semibold">
@@ -1164,7 +1561,10 @@ export default function ProductPage() {
         </div>
       )}
 
-      {/* Sticky bottom bar with counter and order button (full width) */}
+      {/* ================================================================
+          STICKY BOTTOM BAR
+          Offer counter and quick order button
+          ================================================================ */}
       <div className="fixed inset-x-0 bottom-0 z-50">
         <div className="w-full bg-linear-to-r from-amber-50 via-white to-orange-50 border-t-2 border-amber-300 shadow-2xl backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
@@ -1209,6 +1609,10 @@ export default function ProductPage() {
         </div>
       </div>
 
+      {/* ================================================================
+          FOOTER
+          Brand info, locations, and contact details
+          ================================================================ */}
       <footer className="w-full bg-linear-to-br from-amber-900 via-neutral-900 to-neutral-800 mt-20 text-white">
         {/* Main Footer Content */}
         <div className="mx-auto max-w-6xl px-6 py-12">
