@@ -11,8 +11,9 @@ const api = axios.create({
 // Add order (public endpoint)
 export async function addOrder(orderData) {
   try {
-    // Prepare the lead data
-    const { shippingFee, totalDiscount, items, ...leadData } = orderData;
+    // Prepare the lead data — exclude `orderOnly` so order-only fields
+    // (like customer notes intended only for the order) are not sent to lead
+    const { shippingFee, totalDiscount, items, orderOnly, ...leadData } = orderData;
     const response = await api.post('/lead/public', leadData);
     const transformedItems = items.map((item) => ({
       ...item,
@@ -25,6 +26,8 @@ export async function addOrder(orderData) {
       totalDiscount: orderData.totalDiscount,
       shippingFee: orderData.shippingFee,
       items: transformedItems,
+      // merge any order-only fields here so they are sent to the order endpoint
+      ...(orderOnly || {}),
     };
     const orderResult = await api.post('/order/public', orderPayload);
     return orderResult.data;

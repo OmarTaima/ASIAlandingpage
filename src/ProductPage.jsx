@@ -702,8 +702,9 @@ export default function ProductPage() {
         company: DEFAULT_COMPANY_ID,
         subCategories: DEFAULT_SUBCATS,
         isWhatsapp: false,
-        // include branch only when it's a non-empty value (avoid empty-string validation error)
-        ...(pendingOrder.deliveryMethod !== "pickup" && pendingOrder.branchId
+        // DO NOT include `userNote` here — lead creation rejects this field
+        // include branch only when delivery method is pickup
+        ...(pendingOrder.deliveryMethod === "pickup" && pendingOrder.branchId
           ? { branch: pendingOrder.branchId }
           : {}),
       };
@@ -719,7 +720,7 @@ export default function ProductPage() {
           quantity: String(it.quantity),
         })),
         // include branch only when not pickup
-        ...(pendingOrder.deliveryMethod !== "pickup" && pendingOrder.branchId
+        ...(pendingOrder.deliveryMethod === "pickup" && pendingOrder.branchId
           ? { branch: pendingOrder.branchId }
           : {}),
       };
@@ -735,8 +736,12 @@ export default function ProductPage() {
         shippingFee: String(pendingOrder.delivery ?? 0),
         totalDiscount: String(pendingOrder.discount ?? 0),
         company: DEFAULT_COMPANY_ID,
-        // do not include `branch` when pickup; only include when home delivery
-        ...(pendingOrder.deliveryMethod !== "pickup" && {
+        // place the customer's note inside `orderOnly` so it's only sent with the order
+        orderOnly: {
+          userNote: pendingOrder.notes || null,
+        },
+        // include `branch` only when pickup
+        ...(pendingOrder.deliveryMethod === "pickup" && {
           branch: pendingOrder.branchId || "",
         }),
       };
