@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: 'https://sge-commerce.onrender.com/api/v1/',
+  baseURL: import.meta.env.VITE_CRM_BACKEND_URL,
   headers: {
     'Content-Type': 'application/json',
   },
