@@ -17,14 +17,15 @@ import {
   Mail,
   Globe,
   MessageCircle,
+  Volume,
+  VolumeX,
 } from "lucide-react";
 import productVideo from "./assets/ME MODA.mp4";
 import logoImg from "./assets/Logo.jpg";
-import { addOrder } from "./api";
+import { addOrder, fetchCountries, fetchCities, fetchGovernorates } from "./api";
 import Swal from "sweetalert2";
 import productsData from "./products.json";
 import branchesData from "./branches.json";
-import citiesData from "./cities.json";
 
 // ============================================================================
 // IMAGE IMPORTS (DYNAMIC GLOB IMPORTS)
@@ -42,6 +43,13 @@ const womenImages = import.meta.glob(
   "./assets/women/**/*.{jpg,jpeg,png,webp}",
   { eager: true, query: "?url", import: "default" }
 );
+
+// Helper to produce low-resolution image URLs by appending query params
+function getLowResUrl(url, width = 120, quality = 10) {
+  if (!url) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}width=${width}&quality=${quality}`;
+}
 
 /**
  * Build product items from imported image glob
@@ -108,7 +116,7 @@ const ProductCard = ({
   onInc,
   onDec,
 }) => {
-  const lowResSrc = `${item.image}?width=240&quality=30`;
+  const lowResSrc = getLowResUrl(item.image, 120, 10);
   const src = lowResSrc;
   try {
   } catch (_) {}
@@ -143,8 +151,8 @@ const ProductCard = ({
           className="w-full h-full object-cover pointer-events-none"
           loading="lazy"
           decoding="async"
-          fetchPriority="auto"
-          srcSet={`${lowResSrc} 400w`}
+          fetchPriority="low"
+          srcSet={`${getLowResUrl(item.image,120,10)} 120w, ${getLowResUrl(item.image,240,15)} 240w`}
           sizes="(max-width: 800px) 100vw, 33vw"
         />
       </div>
@@ -214,6 +222,13 @@ export default function ProductPage() {
   // Default company/subCategories used when creating leads/orders
   const DEFAULT_COMPANY_ID = "692fffb4e037d2784032b18f";
   const DEFAULT_SUBCATS = ["69388f1d6d0b1261bbc370c0"];
+  // Location data (fetched from API)
+  const [countriesData, setCountriesData] = useState([]);
+  const [governmentsData, setGovernmentsData] = useState([]);
+  const [citiesData, setCitiesData] = useState([]);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [fixedCountry, setFixedCountry] = useState(null);
+  const [selectedGovernment, setSelectedGovernment] = useState("");
 
   // lookup city by name -> id (to map free-text province to city id when possible)
   const citiesByName = useMemo(() => {
@@ -222,7 +237,7 @@ export default function ProductPage() {
       if (c && c.name) m.set(String(c.name).toLowerCase(), c._id);
     });
     return m;
-  }, []);
+  }, [citiesData]);
   // lookup city by id -> name for display
   const citiesById = useMemo(() => {
     const m = new Map();
@@ -230,7 +245,7 @@ export default function ProductPage() {
       if (c && c._id) m.set(c._id, c.name);
     });
     return m;
-  }, []);
+  }, [citiesData]);
   // --------------------------------------------------------------------------
   // PRODUCT DATA PREPARATION
   // --------------------------------------------------------------------------
@@ -301,7 +316,7 @@ export default function ProductPage() {
 
   // Offer and pricing state
   const [desiredCount, setDesiredCount] = useState(1);
-  const [offerSize, setOfferSize] = useState(2);
+  const [offerSize, setOfferSize] = useState(null);
 
   // Form and order state
   const [errorMessage, setErrorMessage] = useState("");
@@ -312,6 +327,8 @@ export default function ProductPage() {
   // Delivery state
   const [deliveryMethod, setDeliveryMethod] = useState("home"); // "home" or "pickup"
   const [selectedBranch, setSelectedBranch] = useState("");
+  // video mute state
+  const [isMuted, setIsMuted] = useState(true);
 
   // --------------------------------------------------------------------------
   // REFS
@@ -322,6 +339,7 @@ export default function ProductPage() {
   const targetCountRef = useRef(0);
   const selectedMenRef = useRef(selectedMen);
   const selectedWomenRef = useRef(selectedWomen);
+  const autoUnmuteUsedRef = useRef(false);
 
   // --------------------------------------------------------------------------
   // CALCULATIONS & DERIVED STATE
@@ -336,15 +354,16 @@ export default function ProductPage() {
 
   // Price calculations
   const price = useMemo(() => {
+    if (!offerSize) return 0;
     const cnt = Number(desiredCount || 0);
-    const unitPrices = { 1: 485, 2: 585, 4: 985 };
+    const unitPrices = { 1: 499, 2: 649, 4: 849 };
     const unit = unitPrices[offerSize] || 250;
     return cnt * unit;
   }, [offerSize, desiredCount]);
 
   // Final price calculations
   // Delivery fee
-  const delivery = deliveryMethod === "pickup" ? 0 : 40;
+  const delivery = deliveryMethod === "pickup" ? 0 : 100;
 
   // Pricing / Discount logic
   // Base per-item retail price (non-offer)
@@ -390,6 +409,150 @@ export default function ProductPage() {
     v.addEventListener("ended", onEnd);
     return () => v.removeEventListener("ended", onEnd);
   }, []);
+
+  // Sync video muted state and enable first-click unmute anywhere on the page
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.muted = Boolean(isMuted);
+
+    // Attach the one-time document click handler only while muted and only if it hasn't run before.
+    if (!isMuted || autoUnmuteUsedRef.current) return;
+
+    function handleFirstClick(e) {
+      // ignore clicks originating from elements that opt-out (e.g. mute button)
+      try {
+        if (e && e.target && e.target.closest && e.target.closest('[data-no-auto-unmute]')) {
+          return;
+        }
+      } catch (_) {}
+      const vid = videoRef.current;
+      if (vid && vid.muted) {
+        try {
+          vid.muted = false;
+        } catch (_) {}
+        setIsMuted(false);
+        autoUnmuteUsedRef.current = true;
+      }
+      document.removeEventListener("click", handleFirstClick, { capture: true });
+    }
+
+    document.addEventListener("click", handleFirstClick, { capture: true, passive: true });
+    return () => document.removeEventListener("click", handleFirstClick, { capture: true });
+  }, [isMuted]);
+
+  // Countdown to fixed target date (March 18, 2026)
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: false });
+  useEffect(() => {
+    const target = new Date('2026-03-18T00:00:00');
+    function update() {
+      const now = new Date();
+      const diff = target.getTime() - now.getTime();
+      if (diff <= 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: true });
+        return;
+      }
+      const s = Math.floor(diff / 1000);
+      const days = Math.floor(s / 86400);
+      const hours = Math.floor((s % 86400) / 3600);
+      const minutes = Math.floor((s % 3600) / 60);
+      const seconds = Math.floor(s % 60);
+      setCountdown({ days, hours, minutes, seconds, expired: false });
+    }
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch countries and initial cities on mount, and load governments/cities when selections change
+  useEffect(() => {
+    const extractList = (res) => {
+      if (!res) return [];
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.data?.data)) return res.data.data;
+      if (Array.isArray(res.data?.docs)) return res.data.docs;
+      if (Array.isArray(res.data?.countries)) return res.data.countries;
+      if (Array.isArray(res.data?.governments)) return res.data.governments;
+      if (Array.isArray(res.data?.cities)) return res.data.cities;
+      return [];
+    };
+
+    // initial load: countries + all cities (fallback)
+    (async () => {
+      try {
+        const cRes = await fetchCountries();
+        setCountriesData(extractList(cRes));
+      } catch (err) {
+        console.error("failed to load countries", err);
+      }
+
+      try {
+        const allCities = await fetchCities();
+        setCitiesData(extractList(allCities));
+      } catch (err) {
+        console.error("failed to load cities", err);
+      }
+    })();
+  }, []);
+
+  // When selected country changes, fetch its governments (governorates)
+  useEffect(() => {
+    if (!selectedCountry) {
+      setGovernmentsData([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetchGovernorates({ country: selectedCountry });
+        // try to extract array from response
+        const list = res?.data?.data || res?.data?.docs || res?.data || [];
+        setGovernmentsData(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error("failed to load governments", err);
+        setGovernmentsData([]);
+      }
+    })();
+  }, [selectedCountry]);
+
+  // set default country to Egypt (مصر) when countries load
+  useEffect(() => {
+    if (!countriesData || countriesData.length === 0) return;
+    // try to find an entry whose name matches مصر or egypt (case-insensitive)
+    const found = countriesData.find((c) => {
+      const n = String(c.name || "").toLowerCase();
+      return n.includes("مصر") || n.includes("egypt") || n.includes("egypt");
+    });
+    if (found) {
+      const id = found._id || found.id || found.name;
+      setSelectedCountry(id);
+      // lock country to Egypt so user cannot change it
+      setFixedCountry(found);
+    }
+  }, [countriesData]);
+
+  // derive whether the selected country is Egypt-like
+  const isEgyptSelected = useMemo(() => {
+    if (!selectedCountry || !countriesData) return false;
+    const sel = countriesData.find(
+      (c) => c._id === selectedCountry || c.id === selectedCountry || c.name === selectedCountry
+    );
+    if (!sel) return false;
+    const n = String(sel.name || "").toLowerCase();
+    return n.includes("مصر") || n.includes("egypt");
+  }, [selectedCountry, countriesData]);
+
+  // When government selected, fetch cities for that government
+  useEffect(() => {
+    if (!selectedGovernment) return;
+    (async () => {
+      try {
+        const res = await fetchCities({ government: selectedGovernment });
+        const list = res?.data?.data || res?.data?.docs || res?.data || [];
+        setCitiesData(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error("failed to load cities for government", err);
+      }
+    })();
+  }, [selectedGovernment]);
 
   // --------------------------------------------------------------------------
   // EVENT HANDLERS
@@ -532,6 +695,12 @@ export default function ProductPage() {
     e.preventDefault();
     setErrorMessage(""); // Clear previous errors
 
+    // Require choosing an offer first
+    if (!offerSize) {
+      setErrorMessage("رجاءً اختر نوع العرض أولاً");
+      return;
+    }
+
     // Check if items are selected first
     if (totalSelected === 0) {
       setErrorMessage("رجاءً اختر العطور أولاً");
@@ -579,9 +748,15 @@ export default function ProductPage() {
     } else {
       // Validate home delivery fields
       cityId = (formData.get("city") || "").trim();
+      // if country is not Egypt, city/government may be disabled — only require city when Egypt is selected
+      const selectedCountryObj = (countriesData || []).find(
+        (c) => c._id === selectedCountry || c.id === selectedCountry || c.name === selectedCountry
+      );
+      const countryName = String(selectedCountryObj?.name || "").toLowerCase();
+      const requireCity = countryName.includes("مصر") || countryName.includes("egypt");
       address = (formData.get("address") || "").trim();
 
-      if (!cityId) {
+      if (requireCity && !cityId) {
         setErrorMessage("رجاءً اختر المحافظة من القائمة");
         return;
       }
@@ -642,16 +817,20 @@ export default function ProductPage() {
         deliveryMethod === "pickup"
           ? branchesById.get(branch)?.name || null
           : null,
-      city: deliveryMethod === "home" ? cityId : null,
+      // always include country; government and city are included only when Egypt is selected,
+      // otherwise they are sent as empty strings per requirement
+      country: selectedCountry || "",
+      government:
+        deliveryMethod === "home" && isEgyptSelected ? selectedGovernment || "" : "",
+      city: deliveryMethod === "home" && isEgyptSelected ? cityId || "" : "",
       cityName:
-        deliveryMethod === "home" ? citiesById.get(cityId) || null : null,
+        deliveryMethod === "home" && isEgyptSelected ? citiesById.get(cityId) || "" : "",
       address: deliveryMethod === "home" ? address : null,
       notes,
       items,
       offerSize,
       desiredCount,
       totalItems: totalItemsCount,
-      // full retail price (no offer): e.g. 2 items * 485 = 970
       price: fullRetailPrice,
       // discount = fullRetailPrice - offerPrice (what customer saves)
       discount,
@@ -687,6 +866,7 @@ export default function ProductPage() {
       const cityId = pendingOrder.city || "";
 
       // build lead payload (first request)
+      // Only include fields expected by the lead endpoint. Do NOT include order-only fields here
       const leadPayload = {
         name: pendingOrder.customerName,
         phone: pendingOrder.phone,
@@ -698,28 +878,49 @@ export default function ProductPage() {
             landmark: "",
           },
         ],
-        city: cityId || "",
         company: DEFAULT_COMPANY_ID,
         subCategories: DEFAULT_SUBCATS,
         isWhatsapp: false,
-        // DO NOT include `userNote` here — lead creation rejects this field
         // include branch only when delivery method is pickup
         ...(pendingOrder.deliveryMethod === "pickup" && pendingOrder.branchId
           ? { branch: pendingOrder.branchId }
           : {}),
       };
 
+      // Include location fields in the lead payload per backend expectations.
+      // Always include country (as selected). Include government and city only when available.
+      if (pendingOrder.country) {
+        leadPayload.country = pendingOrder.country;
+      }
+      if (pendingOrder.deliveryMethod === "home" && pendingOrder.government) {
+        leadPayload.government = pendingOrder.government;
+      }
+      // include city only when present to avoid sending empty strings
+      if (pendingOrder.deliveryMethod === "home" && cityId) {
+        leadPayload.city = cityId;
+      }
+
+      // compute monetary values for the order payload using backend field names
+      const subTotalValue = Number(pendingOrder.price ?? 0); // full retail before discounts
+      const totalDiscountValue = Number(pendingOrder.discount ?? 0);
+      // if an offer is selected, shipping is free as part of the offer
+      const shippingFeeValue = pendingOrder.offerSize ? 0 : Number(pendingOrder.delivery ?? 0);
+      const discountedPriceValue = Number(pendingOrder.discountedPrice ?? pendingOrder.price ?? 0);
+      const totalValue = discountedPriceValue + shippingFeeValue;
+
       // build order payload (second request) — lead id will be set after lead creation
+      // Use backend-expected numeric field names: subTotal, total, totalDiscount, shippingFee
       const orderPayload = {
         lead: "<LEAD_ID_PLACEHOLDER>",
         company: DEFAULT_COMPANY_ID,
-        totalDiscount: String(pendingOrder.discount ?? 0),
-        shippingFee: String(pendingOrder.delivery ?? 0),
+        // Do not send `subTotal` or `total` — backend computes these and rejects them on create
+        totalDiscount: String(totalDiscountValue),
+        shippingFee: String(shippingFeeValue),
         items: items.map((it) => ({
           item: it.product,
           quantity: String(it.quantity),
         })),
-        // include branch only when not pickup
+        // include branch only when pickup
         ...(pendingOrder.deliveryMethod === "pickup" && pendingOrder.branchId
           ? { branch: pendingOrder.branchId }
           : {}),
@@ -733,12 +934,16 @@ export default function ProductPage() {
           item: it.product,
           quantity: String(it.quantity),
         })),
-        shippingFee: String(pendingOrder.delivery ?? 0),
-        totalDiscount: String(pendingOrder.discount ?? 0),
+        // shipping and discount values are allowed at top-level and will be moved to order by addOrder
+        shippingFee: String(shippingFeeValue),
+        totalDiscount: String(totalDiscountValue),
         company: DEFAULT_COMPANY_ID,
-        // place the customer's note inside `orderOnly` so it's only sent with the order
+        // place the customer's note and order-only numeric fields inside `orderOnly` so they are not sent to lead
         orderOnly: {
           userNote: pendingOrder.notes || null,
+          // Only include allowed order-only fields. Do NOT include `subTotal` or `total` — backend calculates them.
+          totalDiscount: String(totalDiscountValue),
+          shippingFee: String(shippingFeeValue),
         },
         // include `branch` only when pickup
         ...(pendingOrder.deliveryMethod === "pickup" && {
@@ -754,16 +959,17 @@ export default function ProductPage() {
         delete payload.branch;
       }
 
-      // remove city when pickup or if empty (avoids server validation "city is not allowed to be empty")
-      if (pendingOrder.deliveryMethod === "pickup" && "city" in payload) {
-        delete payload.city;
-      }
-      if (
-        "city" in payload &&
-        (!payload.city || String(payload.city).trim() === "")
-      ) {
-        delete payload.city;
-      }
+      // Keep `country`, `government`, and `city` in the payload according to selection rules:
+      // - `country` is always sent as selected
+      // - if country is Egypt, `government` and `city` contain the selected values
+      // - if country is not Egypt, `government` and `city` are sent as empty strings
+      // (Do not delete them here so backend receives explicit empty values when required.)
+
+      // Debug: log payload being sent to backend so we can inspect disallowed fields
+      try {
+        // eslint-disable-next-line no-console
+        console.log("Submitting payload to addOrder:", payload);
+      } catch (_) {}
 
       // Submit to backend
       const result = await addOrder(payload);
@@ -789,7 +995,11 @@ export default function ProductPage() {
         pendingOrder.form.reset();
       }
     } catch (err) {
-      console.error(err);
+      // Print server validation details when available
+      try {
+        // eslint-disable-next-line no-console
+        console.error("Order submission error response:", err?.response?.data || err);
+      } catch (_) {}
       setErrorMessage("حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.");
       setShowModal(false);
     } finally {
@@ -848,10 +1058,29 @@ export default function ProductPage() {
               src={productVideo}
               className="w-full h-auto"
               loop
-              muted
+              muted={isMuted}
               playsInline
               autoPlay
             />
+
+            {/* Mute/unmute button overlay */}
+            <button
+              type="button"
+              aria-pressed={!isMuted}
+              onClick={(e) => {
+                e.stopPropagation();
+                const next = !isMuted;
+                setIsMuted(next);
+                try {
+                  if (videoRef.current) videoRef.current.muted = next;
+                } catch (_) {}
+              }}
+              data-no-auto-unmute
+              className="absolute top-3 left-3 z-20 bg-white/90 text-neutral-800 rounded-full p-2 shadow-md hover:scale-105 transition-transform"
+              title={isMuted ? "تشغيل الصوت" : "كتم الصوت"}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume className="w-4 h-4" />}
+            </button>
           </div>
         </section>
 
@@ -893,6 +1122,18 @@ export default function ProductPage() {
               </span>
             </div>
 
+            {/* Countdown banner for free-shipping offer */}
+            <div className="mt-3">
+              <div className="inline-flex items-center gap-3 bg-yellow-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-xl">
+                <div className="font-semibold">العرض الشحن المجاني ينتهي في</div>
+                <div className="font-mono font-bold text-neutral-800">
+                  {countdown.expired
+                    ? "انتهى العرض"
+                    : `${countdown.days} يوم ${String(countdown.hours).padStart(2,'0')}:${String(countdown.minutes).padStart(2,'0')}:${String(countdown.seconds).padStart(2,'0')}`}
+                </div>
+              </div>
+            </div>
+
             {/* Product description */}
             <p className="text-sm text-neutral-600 leading-relaxed">
               <span className="inline-flex items-center gap-1">
@@ -929,7 +1170,7 @@ export default function ProductPage() {
                     (offerSize === 1 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  1 عطر — 485 جنيه
+                  1 عطر — 499 جنيه
                 </span>
               </button>
               <button
@@ -950,7 +1191,7 @@ export default function ProductPage() {
                     (offerSize === 2 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  2 عطور — 585 جنيه
+                  2 عطور — 649 جنيه
                 </span>
               </button>
 
@@ -972,7 +1213,7 @@ export default function ProductPage() {
                     (offerSize === 4 ? "text-amber-100" : "text-neutral-500")
                   }
                 >
-                  4 عطور — 985 جنيه
+                  4 عطور — 849 جنيه
                 </span>
               </button>
             </div>
@@ -1192,76 +1433,105 @@ export default function ProductPage() {
                 />
               </div>
 
-              {/* Conditional delivery/pickup fields (overlay for instant switching) */}
-              <div
-                className="sm:col-span-2 relative"
-                style={{ minHeight: "150px" }}
-              >
-                {/* Pickup panel */}
-                <div
-                  className={`absolute inset-0 ${
-                    deliveryMethod === "pickup"
-                      ? "opacity-100 pointer-events-auto z-10"
-                      : "opacity-0 pointer-events-none z-0"
-                  }`}
-                  aria-hidden={deliveryMethod !== "pickup"}
-                >
-                  <label className="text-sm text-neutral-700 font-semibold">
-                    اختر الفرع
-                  </label>
-                  <select
-                    required={deliveryMethod === "pickup"}
-                    name="branch"
-                    value={selectedBranch}
-                    onChange={(e) => setSelectedBranch(e.target.value)}
-                    className="w-full rounded-lg border-2 border-amber-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
-                  >
-                    <option value="">-- اختر الفرع --</option>
-                    {(branchesData || []).map((b) => (
-                      <option key={b._id} value={b._id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Home delivery panel */}
-                <div
-                  className={`absolute inset-0 space-y-3 ${
-                    deliveryMethod === "home"
-                      ? "opacity-100 pointer-events-auto z-10"
-                      : "opacity-0 pointer-events-none z-0"
-                  }`}
-                  aria-hidden={deliveryMethod !== "home"}
-                >
-                  <div>
-                    <label className="text-sm text-neutral-700">المحافظه</label>
+              {/* Conditional delivery/pickup fields (render only the active panel to avoid overlap) */}
+              <div className="sm:col-span-2">
+                {deliveryMethod === "pickup" ? (
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-700 font-semibold">اختر الفرع</label>
                     <select
-                      required={deliveryMethod === "home"}
-                      name="city"
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
+                      required
+                      name="branch"
+                      value={selectedBranch}
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      className="w-full rounded-lg border-2 border-amber-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
                     >
-                      <option value="">-- اختر المحافظة --</option>
-                      {(citiesData || []).map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.name}
-                        </option>
+                      <option value="">-- اختر الفرع --</option>
+                      {(branchesData || []).map((b) => (
+                        <option key={b._id} value={b._id}>{b.name}</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-sm text-neutral-700">العنوان</label>
-                    <input
-                      required={deliveryMethod === "home"}
-                      name="address"
-                      type="text"
-                      minLength={10}
-                      maxLength={300}
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
-                      placeholder="المدينة، الشارع، أقرب علامة مميزة"
-                    />
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      {fixedCountry ? (
+                        <div>
+                          <label className="text-sm text-neutral-700">الدولة</label>
+                          <input type="hidden" name="country" value={fixedCountry._id || fixedCountry.id || fixedCountry.name} />
+                          <div className="w-full rounded-lg border border-neutral-300 px-3 py-2 bg-gray-100 text-neutral-700">{fixedCountry.name}</div>
+                        </div>
+                      ) : (
+                        <select
+                          required
+                          name="country"
+                          value={selectedCountry}
+                          onChange={(e) => { setSelectedCountry(e.target.value); setSelectedGovernment(""); setCitiesData([]); }}
+                          className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
+                        >
+                          <option value="">-- اختر الدولة --</option>
+                          {(countriesData || [])
+                            .filter((c) => {
+                              const name = String(c?.name || "").trim().toLowerCase();
+                              // hide countries named 'غير محدد' or 'اونلاين'
+                              if (!name) return false;
+                              if (name.includes("غير محدد")) return false;
+                              if (name.includes("اونلاين")) return false;
+                              return true;
+                            })
+                            .map((c) => (
+                              <option key={c._id || c.id || c.name} value={c._id || c.id || c.name}>{c.name}</option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
+
+                    {isEgyptSelected ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm text-neutral-700">المحافظة</label>
+                          <select
+                            name="government"
+                            value={selectedGovernment}
+                            onChange={(e) => setSelectedGovernment(e.target.value)}
+                            className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white border-neutral-300"
+                          >
+                            <option value="">-- اختر المحافظة --</option>
+                            {(governmentsData || []).map((g) => (
+                              <option key={g._id || g.id || g.name} value={g._id || g.id || g.name}>{g.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-neutral-700">المدينة</label>
+                          <select
+                            required
+                            name="city"
+                            className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white border-neutral-300"
+                          >
+                            <option value="">-- اختر المدينة --</option>
+                            {(citiesData || []).map((c) => (
+                              <option key={c._id || c.id || c.name} value={c._id || c.id || c.name}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <label className="text-sm text-neutral-700">العنوان</label>
+                      <input
+                        required
+                        name="address"
+                        type="text"
+                        minLength={10}
+                        maxLength={300}
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e]"
+                        placeholder="المدينة، الشارع، أقرب علامة مميزة"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Order notes textarea */}
@@ -1282,19 +1552,27 @@ export default function ProductPage() {
               {/* Offer breakdown removed from UI per request */}
               <div className="flex items-center justify-between">
                 <span>سعر العطور</span>
-                <span>{fullRetailPrice ? `${fullRetailPrice} جنيه` : "—"}</span>
+                <span>{price ? `${discountedPrice} جنيه` : "—"}</span>
               </div>
-              <div className="flex items-center justify-between text-red-600">
+              {/* <div className="flex items-center justify-between text-red-600">
                 <span>الخصم</span>
                 <span>-{discount ? `${discount} جنيه` : "0 جنيه"}</span>
-              </div>
-              <div className="flex items-center justify-between">
+              </div> */}
+              <div className="flex items-center justify-between text-gray-500">
                 <span>سعر التوصيل</span>
                 <span>{delivery} جنيه</span>
               </div>
-              <div className="flex items-center justify-between font-bold border-t mt-2 pt-2">
+              <div className="flex items-center justify-between">
+                <span>سعر التوصيل بعد العرض</span>
+                <span>مجانا</span>
+              </div>
+              {/* <div className="flex items-center justify-between font-bold border-t mt-2 pt-2">
                 <span>الإجمالي</span>
                 <span>{grandTotal ? `${grandTotal} جنيه` : "—"}</span>
+              </div> */}
+              <div className="flex items-center justify-between font-bold border-t mt-2 pt-2">
+                <span>الإجمالي</span>
+                <span>{discountedPrice ? `${discountedPrice} جنيه` : "—"}</span>
               </div>
             </div>
 
@@ -1495,8 +1773,11 @@ export default function ProductPage() {
                   {pendingOrder.items.map((item, idx) => (
                     <div key={idx} className="relative">
                       <img
-                        src={item.image}
+                        src={getLowResUrl(item.image, 120, 10)}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
                         className="w-full h-16 object-cover rounded-lg border border-blue-300"
                       />
                       <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
@@ -1514,10 +1795,10 @@ export default function ProductPage() {
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر العطور:</span>
                     <span className="font-semibold">
-                      {pendingOrder.price ?? pendingOrder.discountedPrice} جنيه
+                      {pendingOrder.discountedPrice ?? pendingOrder.price} جنيه
                     </span>
                   </div>
-                  {pendingOrder.discount ? (
+                  {/* {pendingOrder.discount ? (
                     <div className="flex justify-between text-red-600">
                       <span className="text-neutral-700">الخصم:</span>
                       <span className="font-semibold">
@@ -1527,9 +1808,9 @@ export default function ProductPage() {
                   ) : (
                     <div className="flex justify-between text-red-600">
                       <span className="text-neutral-700">الخصم:</span>
-                      <span className="font-semibold">-0 جنيه</span>
+                      <span className="font-semibold">0 جنيه</span>
                     </div>
-                  )}
+                  )} */}
                   <div className="flex justify-between">
                     <span className="text-neutral-700">سعر التوصيل:</span>
                     <span className="font-semibold">
@@ -1539,7 +1820,7 @@ export default function ProductPage() {
                   <div className="flex justify-between border-t border-neutral-300 pt-2 mt-2">
                     <span className="font-bold text-lg">الإجمالي:</span>
                     <span className="font-bold text-xl text-green-600">
-                      {pendingOrder.grandTotal} جنيه
+                      {pendingOrder.discountedPrice ?? pendingOrder.grandTotal} جنيه
                     </span>
                   </div>
                 </div>
