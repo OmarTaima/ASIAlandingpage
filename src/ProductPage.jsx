@@ -1047,11 +1047,11 @@ export default function ProductPage() {
       {/* ================================================================
           MAIN CONTENT - Product showcase and order form
           ================================================================ */}
-      <main className="mx-auto max-w-6xl px-4 py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-40 grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* ----------------------------------------
             VIDEO SECTION
             ---------------------------------------- */}
-        <section className="space-y-4">
+        <section className="space-y-4 scroll-mt-20">
           <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-black">
             <video
               ref={videoRef}
@@ -1087,7 +1087,7 @@ export default function ProductPage() {
         {/* ----------------------------------------
             PRODUCT DETAILS & SELECTOR SECTION
             ---------------------------------------- */}
-        <section className="space-y-5">
+        <section className="space-y-5 scroll-mt-20">
           {/* Product title and rating */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -1453,37 +1453,16 @@ export default function ProductPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div>
-                      {fixedCountry ? (
+                    {/* <div>
+                      
                         <div>
                           <label className="text-sm text-neutral-700">الدولة</label>
                           <input type="hidden" name="country" value={fixedCountry._id || fixedCountry.id || fixedCountry.name} />
                           <div className="w-full rounded-lg border border-neutral-300 px-3 py-2 bg-gray-100 text-neutral-700">{fixedCountry.name}</div>
                         </div>
-                      ) : (
-                        <select
-                          required
-                          name="country"
-                          value={selectedCountry}
-                          onChange={(e) => { setSelectedCountry(e.target.value); setSelectedGovernment(""); setCitiesData([]); }}
-                          className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#be9f4e] bg-white"
-                        >
-                          <option value="">-- اختر الدولة --</option>
-                          {(countriesData || [])
-                            .filter((c) => {
-                              const name = String(c?.name || "").trim().toLowerCase();
-                              // hide countries named 'غير محدد' or 'اونلاين'
-                              if (!name) return false;
-                              if (name.includes("غير محدد")) return false;
-                              if (name.includes("اونلاين")) return false;
-                              return true;
-                            })
-                            .map((c) => (
-                              <option key={c._id || c.id || c.name} value={c._id || c.id || c.name}>{c.name}</option>
-                            ))}
-                        </select>
-                      )}
-                    </div>
+                      
+                        
+                    </div> */}
 
                     {isEgyptSelected ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1858,11 +1837,14 @@ export default function ProductPage() {
         </div>
       )}
 
-      {/* ================================================================
+        {/* Spacer to prevent fixed bottom bar from overlapping content */}
+        <div className="h-24 lg:h-32" aria-hidden="true" />
+
+        {/* ================================================================
           STICKY BOTTOM BAR
           Offer counter and quick order button
           ================================================================ */}
-      <div className="fixed inset-x-0 bottom-0 z-50">
+        <div className="fixed inset-x-0 bottom-0 z-50">
         <div className="w-full bg-linear-to-r from-amber-50 via-white to-orange-50 border-t-2 border-amber-300 shadow-2xl backdrop-blur-sm">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-center gap-4">
             <div className="inline-flex items-center gap-2 px-1 bg-white rounded-full shadow-lg border-2 border-amber-200">
@@ -1910,7 +1892,7 @@ export default function ProductPage() {
           FOOTER
           Brand info, locations, and contact details
           ================================================================ */}
-      <footer className="w-full bg-linear-to-br from-amber-900 via-neutral-900 to-neutral-800 mt-20 text-white">
+      <footer className="w-full bg-linear-to-br from-amber-900 via-neutral-900 to-neutral-800 mt-20 text-white pb-32 lg:pb-20">
         {/* Main Footer Content */}
         <div className="mx-auto max-w-6xl px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -2057,25 +2039,24 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="border-t border-white/10 bg-black/30">
-          <div className="mx-auto max-w-6xl px-6 py-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 text-sm">
-              <div className="flex items-center gap-2 text-neutral-400">
-                <Heart className="w-4 h-4 text-red-400 fill-red-400" />
-                <span>
-                  جميع الحقوق محفوظة © {new Date().getFullYear()} ASIA
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-neutral-400">
-                <MapPin className="w-4 h-4 text-amber-400" />
-                <span className="text-xs">
-                  21 شارع نادي المعلمين، طنطا، مصر
-                </span>
-              </div>
-            </div>
+        {/* Created By Section (centered, no logo/year) */}
+        <div className="py-6">
+          <div className="mx-auto max-w-6xl px-4 text-center">
+            <p className="text-xs text-neutral-300">
+              Created by{' '}
+              <a
+                href="https://www.sabergroup-eg.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-300 font-semibold hover:underline"
+                aria-label="SABERGROUPSTUDIOS website"
+              >
+                SABERGROUPSTUDIOS
+              </a>
+            </p>
           </div>
         </div>
+       
       </footer>
     </div>
   );
